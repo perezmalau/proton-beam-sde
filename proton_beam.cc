@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <gsl/gsl_randist.h>
@@ -10,8 +11,8 @@ struct proton_path {
 
   proton_path(const double e0, const std::vector<double> x0,
               const std::vector<double> w0, const int n)
-      : energy(n, e0), s(n, 0), x(n, x0), omega(n, w0), u(3, 0), z(3, 0), w(3, 0) {
-  }
+      : energy(n, e0), s(n, 0), x(n, x0), omega(n, w0), u(3, 0), z(3, 0),
+        w(3, 0) {}
 
   void reset(const double e0, const std::vector<double> x0,
              const std::vector<double> w0) {
@@ -127,7 +128,8 @@ struct proton_path {
     z[1] = sin(omega[ix - 1][0]) * sin(omega[ix - 1][1]);
     z[2] = cos(omega[ix - 1][0]);
 
-    double y = wright_fisher(time_increment * diffusion_coeff(energy[ix - 1]), gen);
+    double y =
+        wright_fisher(time_increment * diffusion_coeff(energy[ix - 1]), gen);
     double theta = 2 * M_PI * gsl_rng_uniform(gen);
     double denom = sqrt(z[0] * z[0] + z[1] * z[1] + (z[2] - 1) * (z[2] - 1));
     if (denom > 1e-10) {
@@ -144,19 +146,29 @@ struct proton_path {
            2 * u[1] * u[2] * z[2];
     w[2] = (1 - 2 * u[2] * u[2]) * z[2] - 2 * u[0] * u[2] * z[0] +
            2 * u[1] * u[2] * z[1];
+    if (ix == int(omega.size())) {
+      omega.resize(2 * omega.size(), omega.back());
+      energy.resize(2 * energy.size(), energy.back());
+      x.resize(2 * x.size(), x.back());
+      s.resize(2 * s.size(), s.back());
+    }
     omega[ix][0] = acos(w[2]);
     omega[ix][1] = atan2(w[1], w[0]);
-    x[ix][0] = x[ix - 1][0] + sin(omega[ix][0]) * cos(omega[ix][1]) * time_increment;
-    x[ix][1] = x[ix - 1][1] + sin(omega[ix][0]) * sin(omega[ix][1]) * time_increment;
+    x[ix][0] =
+        x[ix - 1][0] + sin(omega[ix][0]) * cos(omega[ix][1]) * time_increment;
+    x[ix][1] =
+        x[ix - 1][1] + sin(omega[ix][0]) * sin(omega[ix][1]) * time_increment;
     x[ix][2] = x[ix - 1][2] + cos(omega[ix][0]) * time_increment;
-    energy[ix] = fmax(absorption_energy, energy[ix - 1] - time_increment * dose_deposition(energy[ix - 1]));
+    energy[ix] =
+        fmax(absorption_energy,
+             energy[ix - 1] - time_increment * dose_deposition(energy[ix - 1]));
     s[ix] = (energy[ix - 1] - energy[ix]) / dist(x[ix - 1], x[ix]);
     ix++;
     return;
   }
 
   double sigma_inelastic_ub() {
-    double e_peak = 20; 
+    double e_peak = 20;
     double ret = sigma_inelastic(e_peak);
     return ret;
   }
@@ -235,13 +247,14 @@ struct proton_path {
     return;
   }
 
-  int simulate(const double dt, const double lb, const double absorption_e, gsl_rng *gen) {
+  int simulate(const double dt, const double lb, const double absorption_e,
+               gsl_rng *gen) {
     double inelastic_jump_rate, elastic_jump_rate, e;
     double jump_rate, jump_time, alpha;
     int ix = 1;
     do {
       inelastic_jump_rate = sigma_inelastic_ub();
-      elastic_jump_rate = sigma_elastic(energy[ix - 1]);
+      elastic_jump_rate = sigma_elastic(absorption_e);
       jump_rate = inelastic_jump_rate + elastic_jump_rate;
       jump_time = gsl_ran_exponential(gen, 1 / jump_rate);
 
@@ -253,14 +266,18 @@ struct proton_path {
       }
       e = energy[ix - 1];
       alpha = exp(log(sigma_inelastic(e) + sigma_elastic(e)) - log(jump_rate));
+      assert(alpha > 0);
+      assert(alpha < 1);
       if (e > absorption_e && gsl_rng_uniform(gen) < alpha) {
-        alpha = exp(log(sigma_elastic(e)) - log(sigma_inelastic(e) + sigma_elastic(e)));
+        alpha = exp(log(sigma_elastic(e)) -
+                    log(sigma_inelastic(e) + sigma_elastic(e)));
         if (gsl_rng_uniform(gen) < alpha) {
           elastic_scatter(omega[ix - 1], lb, gen);
         } else {
           inelastic_scatter(omega[ix - 1], gen);
           energy[ix - 1] *= gsl_rng_uniform(gen);
-          s[ix - 1] = (energy[ix - 2] - energy[ix - 1]) / dist(x[ix - 1], x[ix - 2]);
+          s[ix - 1] =
+              (energy[ix - 2] - energy[ix - 1]) / dist(x[ix - 1], x[ix - 2]);
         }
       }
     } while (energy[ix - 1] > absorption_e);
@@ -280,5 +297,4 @@ struct proton_path {
   std::vector<std::vector<double>> x, omega;
   // Dummy vectors for spherical BM
   std::vector<double> u, z, w;
-  
 };

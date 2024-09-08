@@ -1,14 +1,15 @@
-#include <cstdlib>
 #include "grid_2d.cc"
+#include "grid_3d.cc"
+#include "proton_beam.cc"
+#include <cstdlib>
 #include <gsl/gsl_rng.h>
 #include <iostream>
 #include <libconfig.h++>
-#include "proton_beam.cc"
-#include "grid_3d.cc"
 #include <string>
 #include <vector>
 
-// Member function of proton_beam copied here for access by ODE track length solver
+// Member function of proton_beam copied here for access by ODE track length
+// solver
 double dose_deposition(const double e) {
   double p = 1.77;
   double a = 2.2 * 1e-2; // in mm / MeV
@@ -16,14 +17,15 @@ double dose_deposition(const double e) {
   return ret;
 }
 
-int solve_track_length(const double e0, const double dt, const double absorption_e) {
+int solve_track_length(const double e0, const double dt,
+                       const double absorption_e) {
   int ret = 0;
   double e = e0;
   while (e > absorption_e) {
     ret++;
-    e -= dt * dose_deposition(e); 
+    e -= dt * dose_deposition(e);
   }
-  return ret; 
+  return ret;
 }
 
 int main(int argc, char **argv) {
@@ -33,7 +35,7 @@ int main(int argc, char **argv) {
   }
   gsl_rng *gen = gsl_rng_alloc(gsl_rng_mt19937);
   gsl_rng_set(gen, time(NULL));
-  
+
   double nozzle_radius, e0;
   std::vector<double> x(3, 0), w(2, 0);
   w[0] = M_PI / 2;
@@ -45,12 +47,12 @@ int main(int argc, char **argv) {
   double r = nozzle_radius * gsl_rng_uniform(gen);
   x[1] = sqrt(r * nozzle_radius) * cos(theta);
   x[2] = sqrt(r * nozzle_radius) * sin(theta);
-  
+
   double initial_e_min, initial_e_max;
   cfg.lookupValue("initial_e_min", initial_e_min);
   cfg.lookupValue("initial_e_max", initial_e_max);
   e0 = gsl_ran_flat(gen, initial_e_min, initial_e_max);
-  
+
   double dt, scatter_angle_lb, absorption_e;
   int nrep;
   cfg.lookupValue("max_step_size", dt);
@@ -100,7 +102,7 @@ int main(int argc, char **argv) {
     tmp = 1;
   }
   grid_2d g2d_slice(tmp, grid_dx);
-  
+
   int len;
   for (int i = 0; i < nrep; i++) {
     len = p.simulate(dt, scatter_angle_lb, absorption_e, gen);

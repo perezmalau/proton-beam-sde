@@ -8,7 +8,7 @@
 struct grid_3d {
 
   grid_3d(const int n, const double dx_)
-             : dx(dx_), x_pp(n), x_pm(n), x_mp(n), x_mm(n) {
+      : dx(dx_), x_pp(n), x_pm(n), x_mp(n), x_mm(n) {
     std::vector<double> tmp(1, 0);
     std::vector<std::vector<double>> tmp2(1, tmp);
     for (int i = 0; i < n; i++) {
@@ -113,7 +113,8 @@ struct grid_3d {
         if (j < x_mp[ix].size()) {
           val += x_mp[ix][j][0];
           if (val > 0) {
-            outfile << dx * ix << " " << -dx * (j + 1) << " " << val << std::endl;
+            outfile << dx * ix << " " << -dx * (j + 1) << " " << val
+                    << std::endl;
           }
         }
       }
@@ -128,28 +129,32 @@ struct grid_3d {
       for (unsigned int j = 0; j < x_pp[ix].size(); j++) {
         for (unsigned int k = 0; k < x_pp[ix][j].size(); k++) {
           if (x_pp[ix][j][k] > 0) {
-            outfile << dx * ix << " " << dx * j << " " << dx * k <<  " " << x_pp[ix][j][k] << std::endl;
+            outfile << dx * ix << " " << dx * j << " " << dx * k << " "
+                    << x_pp[ix][j][k] << std::endl;
           }
         }
       }
       for (unsigned int j = 0; j < x_pm[ix].size(); j++) {
         for (unsigned int k = 0; k < x_pm[ix][j].size(); k++) {
           if (x_pm[ix][j][k] > 0) {
-            outfile << dx * ix << " " << dx * j << " " << -dx * (k + 1) <<  " " << x_pm[ix][j][k] << std::endl;
+            outfile << dx * ix << " " << dx * j << " " << -dx * (k + 1) << " "
+                    << x_pm[ix][j][k] << std::endl;
           }
         }
       }
       for (unsigned int j = 0; j < x_mp[ix].size(); j++) {
         for (unsigned int k = 0; k < x_mp[ix][j].size(); k++) {
           if (x_mp[ix][j][k] > 0) {
-            outfile << dx * ix << " " << -dx * (j + 1) << " " << dx * k <<  " " << x_mp[ix][j][k] << std::endl;
+            outfile << dx * ix << " " << -dx * (j + 1) << " " << dx * k << " "
+                    << x_mp[ix][j][k] << std::endl;
           }
         }
       }
       for (unsigned int j = 0; j < x_mm[ix].size(); j++) {
         for (unsigned int k = 0; k < x_mm[ix][j].size(); k++) {
           if (x_mm[ix][j][k] > 0) {
-            outfile << dx * ix << " " << -dx * (j + 1) << " " << -dx * (k + 1) <<  " " << x_mm[ix][j][k] << std::endl;
+            outfile << dx * ix << " " << -dx * (j + 1) << " " << -dx * (k + 1)
+                    << " " << x_mm[ix][j][k] << std::endl;
           }
         }
       }
@@ -207,5 +212,5 @@ struct grid_3d {
   }
 
   double dx;
-  std::vector<std::vector<std::vector<double> > > x_pp, x_pm, x_mp, x_mm;
+  std::vector<std::vector<std::vector<double>>> x_pp, x_pm, x_mp, x_mm;
 };

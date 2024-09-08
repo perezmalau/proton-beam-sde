@@ -7,8 +7,7 @@
 
 struct grid_2d {
 
-  grid_2d(const int n, const double dx_)
-             : dx(dx_), x_pos(n), x_neg(n) {
+  grid_2d(const int n, const double dx_) : dx(dx_), x_pos(n), x_neg(n) {
     std::vector<double> tmp(1, 0);
     for (int i = 0; i < n; i++) {
       x_pos[i] = tmp;
@@ -45,7 +44,8 @@ struct grid_2d {
       }
       for (unsigned int k = 0; k < x_neg[j].size(); k++) {
         if (x_neg[j][k] > 0) {
-          outfile << dx * j << " " << -dx * (k + 1) << " " << x_neg[j][k] << std::endl;
+          outfile << dx * j << " " << -dx * (k + 1) << " " << x_neg[j][k]
+                  << std::endl;
         }
       }
     }
@@ -102,5 +102,5 @@ struct grid_2d {
   }
 
   double dx;
-  std::vector<std::vector<double> > x_pos, x_neg;
+  std::vector<std::vector<double>> x_pos, x_neg;
 };
