@@ -115,6 +115,7 @@ int main(int argc, char **argv) {
     if (output_2d_slice == 1) {
       g2d_slice.add_to_slice(p.x, p.s, len);
     }
+
     e0 = gsl_ran_flat(gen, initial_e_min, initial_e_max);
     theta = 2 * M_PI * gsl_rng_uniform(gen);
     r = nozzle_radius * gsl_rng_uniform(gen);

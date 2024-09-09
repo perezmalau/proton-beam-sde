@@ -1,4 +1,3 @@
-#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <gsl/gsl_randist.h>
@@ -122,8 +121,7 @@ struct proton_path {
     return ret;
   }
 
-  void spherical_bm(const double time_increment, const double absorption_energy,
-                    int &ix, gsl_rng *gen) {
+  void spherical_bm(const double time_increment, int &ix, gsl_rng *gen) {
     z[0] = sin(omega[ix - 1][0]) * cos(omega[ix - 1][1]);
     z[1] = sin(omega[ix - 1][0]) * sin(omega[ix - 1][1]);
     z[2] = cos(omega[ix - 1][0]);
@@ -160,8 +158,7 @@ struct proton_path {
         x[ix - 1][1] + sin(omega[ix][0]) * sin(omega[ix][1]) * time_increment;
     x[ix][2] = x[ix - 1][2] + cos(omega[ix][0]) * time_increment;
     energy[ix] =
-        fmax(absorption_energy,
-             energy[ix - 1] - time_increment * dose_deposition(energy[ix - 1]));
+        energy[ix - 1] - time_increment * dose_deposition(energy[ix - 1]);
     s[ix] = (energy[ix - 1] - energy[ix]) / dist(x[ix - 1], x[ix]);
     ix++;
     return;
@@ -261,23 +258,20 @@ struct proton_path {
       int nsteps = ceil(jump_time / dt);
       int m = 0;
       while (m < nsteps && energy[ix - 1] > absorption_e) {
-        spherical_bm(jump_time / nsteps, absorption_e, ix, gen);
+        spherical_bm(jump_time / nsteps, ix, gen);
         m++;
       }
       e = energy[ix - 1];
-      alpha = exp(log(sigma_inelastic(e) + sigma_elastic(e)) - log(jump_rate));
-      assert(alpha > 0);
-      assert(alpha < 1);
+      alpha = (sigma_inelastic(e) + sigma_elastic(e)) / jump_rate;
       if (e > absorption_e && gsl_rng_uniform(gen) < alpha) {
-        alpha = exp(log(sigma_elastic(e)) -
-                    log(sigma_inelastic(e) + sigma_elastic(e)));
+        alpha = sigma_elastic(e) / (sigma_inelastic(e) + sigma_elastic(e));
         if (gsl_rng_uniform(gen) < alpha) {
           elastic_scatter(omega[ix - 1], lb, gen);
         } else {
           inelastic_scatter(omega[ix - 1], gen);
           energy[ix - 1] *= gsl_rng_uniform(gen);
-          s[ix - 1] =
-              (energy[ix - 2] - energy[ix - 1]) / dist(x[ix - 1], x[ix - 2]);
+          s[ix - 1] = (energy[ix - 2] - energy[ix - 1]) /
+                      fmax(dt, dist(x[ix - 1], x[ix - 2]));
         }
       }
     } while (energy[ix - 1] > absorption_e);
