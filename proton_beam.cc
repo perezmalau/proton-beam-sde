@@ -109,16 +109,56 @@ struct proton_path {
     return sqrt(ret);
   }
 
-  double dose_deposition(const double e) {
-    double p = 1.77;
-    double a = 2.2 * 1e-2; // in mm / MeV
-    double ret = pow(e, 1 - p) / (a * p);
+  double bethe_bloch(const double e) {
+    double rho = 1;         // density of medium, g / cm^3
+    double Z_oxy = 8;       // atomic number
+    double Z_hyd = 1;       // atomic number
+    double A_oxy = 16;      // atomic mass
+    double A_hyd = 1;       // atomic mass
+    double mecsq = 0.511;   // mass of electron * speed of light squared, MeV
+    double mpcsq = 938.346; // mass of proton * speed of light squared, MeV
+    // mean excitation energy of medium, MeV, fitted by eye
+    double I = 60 * 1e-6;
+    double betasq = (2 * mpcsq + e) * e / pow(mpcsq + e, 2);
+    double b_oxy = 0.3072 * Z_oxy * rho *
+                   (log(2 * mecsq * betasq / I * (1 - betasq)) - betasq) /
+                   (A_oxy * betasq); // MeV / cm
+    double b_hyd = 0.3072 * Z_hyd * rho *
+                   (log(2 * mecsq * betasq / I * (1 - betasq)) - betasq) /
+                   (A_hyd * betasq); // MeV / cm
+    double ret = (A_oxy * b_oxy + 2 * A_hyd * b_hyd) / (A_oxy + 2 * A_hyd);
     return ret;
   }
 
-  double diffusion_coeff(const double e) {
-    double ret = sigma_elastic(e);
+  double multiple_scattering_sd(const double e, const double dt) {
+    double Z_oxy = 8;       // atomic number
+    double Z_hyd = 1;       // atomic number
+    double A_oxy = 16;      // atomic mass
+    double A_hyd = 1;       // atomic mass
+    double mpcsq = 938.346; // mass of proton * speed of light squared, MeV
+    // radiation length of oxygen, g / cm^2
+    double x_oxy =
+        A_oxy * 716.4 * log(287 / sqrt(Z_oxy)) / (Z_oxy * (Z_oxy + 1));
+    // radiation length of hydrogen, g / cm^2
+    double x_hyd =
+        A_hyd * 716.4 * log(287 / sqrt(Z_hyd)) / (Z_hyd * (Z_hyd + 1));
+    // radiation length of water via Bragg additivity rule
+    double x0 = (2 * A_hyd + A_oxy) * x_oxy * x_hyd /
+                (A_oxy * x_hyd + 2 * A_hyd * x_oxy);
+    double pv = (2 * mpcsq + e) * e / (mpcsq + e);
+    double ret = 14.1 * sqrt(dt / x0) * (1 + log10(dt / x0) / 9) / pv;
     return ret;
+  }
+
+  double energy_straggling_sd() {
+    double alpha = 1 / 137.0;
+    double log_hbar = -21 * log(10) + log(4.136) - log(2 * M_PI); // MeV * s
+    double log_c = log(29979245800);                              // cm / s
+    double log_water_density = 22 * log(10) + log(3.345); // molecules / cm^3
+    double z = 10; // electrons per water molecule
+    double ret = 4 * M_PI * z *
+                 exp(2 * (log(alpha) + log_hbar + log_c) + log_water_density);
+    return sqrt(ret);
   }
 
   void spherical_bm(const double time_increment, int &ix, gsl_rng *gen) {
@@ -126,8 +166,8 @@ struct proton_path {
     z[1] = sin(omega[ix - 1][0]) * sin(omega[ix - 1][1]);
     z[2] = cos(omega[ix - 1][0]);
 
-    double y =
-        wright_fisher(time_increment * diffusion_coeff(energy[ix - 1]), gen);
+    double y = wright_fisher(
+        pow(multiple_scattering_sd(energy[ix - 1], time_increment), 2), gen);
     double theta = 2 * M_PI * gsl_rng_uniform(gen);
     double denom = sqrt(z[0] * z[0] + z[1] * z[1] + (z[2] - 1) * (z[2] - 1));
     if (denom > 1e-10) {
@@ -152,48 +192,62 @@ struct proton_path {
     }
     omega[ix][0] = acos(w[2]);
     omega[ix][1] = atan2(w[1], w[0]);
-    x[ix][0] =
-        x[ix - 1][0] + sin(omega[ix][0]) * cos(omega[ix][1]) * time_increment;
-    x[ix][1] =
-        x[ix - 1][1] + sin(omega[ix][0]) * sin(omega[ix][1]) * time_increment;
-    x[ix][2] = x[ix - 1][2] + cos(omega[ix][0]) * time_increment;
-    energy[ix] =
-        energy[ix - 1] - time_increment * dose_deposition(energy[ix - 1]);
-    s[ix] = (energy[ix - 1] - energy[ix]) / dist(x[ix - 1], x[ix]);
+    double v0 = omega[ix - 1][0];
+    double v1 = omega[ix][0];
+    double w0 = omega[ix - 1][1];
+    double w1 = omega[ix][1];
+    double dt = time_increment;
+    x[ix][0] = x[ix - 1][0] -
+               dt *
+                   ((v0 - v1) * (cos(v0) * cos(w0) - cos(v1) * cos(w1)) +
+                    (w0 - w1) * (sin(v0) * sin(w0) - sin(v1) * sin(w1))) /
+                   ((v0 - v1 + w0 - w1) * (v0 - v1 - w0 + w1));
+    x[ix][1] = x[ix - 1][1] +
+               dt *
+                   ((w0 - w1) * (cos(w0) * sin(v0) - cos(w1) * sin(v1)) -
+                    (v0 - v1) * (cos(v0) * sin(w0) - cos(v1) * sin(w1))) /
+                   ((v0 - v1 + w0 - w1) * (v0 - v1 - w0 + w1));
+    if (fabs(v0 - v1) > 1e-9) {
+      x[ix][2] = x[ix - 1][2] + (sin(v0) - sin(v1)) * dt / (v0 - v1);
+    } else {
+      x[ix][2] = x[ix - 1][2] - (cos(v0) + cos(v1)) / 2;
+    }
+    energy[ix] = energy[ix - 1] -
+                 bethe_bloch(energy[ix - 1]) * dist(x[ix - 1], x[ix]) +
+                 sqrt(dist(x[ix - 1], x[ix])) * energy_straggling_sd() *
+                     gsl_ran_gaussian_ziggurat(gen, 1);
+    energy[ix] = fmax(energy[ix], 0);
+    s[ix] = (energy[ix - 1] - energy[ix]);
     ix++;
     return;
   }
 
-  double sigma_inelastic_ub() {
-    double e_peak = 20;
-    double ret = sigma_inelastic(e_peak);
-    return ret;
+  double nonelastic_cross_section(const double e, const CS_1d &nonelastic_cs) {
+    double ret = nonelastic_cs.evaluate(e);
+    double log_water_density = 22 * log(10) + log(3.345); // molecules / cm^3
+    double log_barns_to_cmsq = -24 * log(10);
+    double A_oxy = 16;
+    double A_hyd = 1;
+    double c = A_oxy * exp(log_barns_to_cmsq + log_water_density) /
+               (A_oxy + 2 * A_hyd);
+    return c * ret; // rate per cm
   }
 
-  double sigma_inelastic(const double e) {
-    double ret = 0;
-    double e_min = 6;
-    double e_peak = 20;
-    double e_plateau = 100;
-    double plateau = 0.3;
-    double peak = 0.55;
-    double grad;
-    if (e_min < e && e <= e_peak) {
-      grad = peak / (e_peak - e_min);
-      ret = grad * (e - e_min);
-    } else if (e_peak < e && e <= e_plateau) {
-      grad = (plateau - peak) / (e_plateau - e_peak);
-      ret = grad * (e - e_peak) + peak;
-    } else {
-      ret = plateau;
-    }
-    double c = 1e-3;
-    return c * ret;
-  }
-
-  double sigma_elastic(const double e) {
-    double c = 1e-2;
-    double ret = c / (e * e);
+  double elastic_cross_section(const double e, const double lb) {
+    double Z_oxy = 8;  // atomic number
+    double Z_hyd = 1;  // atomic number
+    double A_oxy = 16; // atomic mass
+    double A_hyd = 1;  // atomic mass
+    double log_ahbarc = log(197.3 / 137) - 13 * log(10);
+    double mpcsq = 938.346; // mass of proton * speed of light squared, MeV
+    double pv = (2 * mpcsq + e) * e / (mpcsq + e);
+    double log_density = 22 * log(10) + log(3.345); // molecules / cm^3
+    double sig =
+        exp(2 * (log_ahbarc + log(cos(lb / 2)) - log(pv) - log(sin(lb / 2))) +
+            log_density) *
+        M_PI;
+    double ret = sig * (A_oxy * pow(Z_oxy, 2) + 2 * A_hyd * pow(Z_hyd, 2)) /
+                 (A_oxy + 2 * A_hyd);
     return ret;
   }
 
@@ -203,7 +257,6 @@ struct proton_path {
     double u = gsl_rng_uniform(gen);
     double alpha = acos((cos(lb) - u * pow(cos(lb / 2), 2)) /
                         (1 - u * pow(cos(lb / 2), 2)));
-
     if (0 <= beta && beta < M_PI / 2) {
       ang[0] -= atan(sin(beta) * tan(alpha));
       ang[1] -= atan(cos(beta) * tan(alpha));
@@ -220,61 +273,62 @@ struct proton_path {
     return;
   }
 
-  void inelastic_scatter(std::vector<double> &ang, gsl_rng *gen) {
-    double alpha = 2;
-    double beta = 2;
-    if (0 < ang[0] && ang[0] <= M_PI / 2) {
-      beta = M_PI / ang[0];
+  double nonelastic_scatter(std::vector<double> &ang, const double e,
+                            gsl_rng *gen, const CS_2d &angle_cdf) {
+    double beta = 2 * M_PI * gsl_rng_uniform(gen);
+    double alpha = angle_cdf.sample(e, gen);
+    if (0 <= beta && beta < M_PI / 2) {
+      ang[0] -= atan(sin(beta) * tan(alpha));
+      ang[1] -= atan(cos(beta) * tan(alpha));
+    } else if (M_PI / 2 <= beta && beta < M_PI) {
+      ang[0] -= atan(sin(M_PI - beta) * tan(alpha));
+      ang[1] += atan(cos(M_PI - beta) * tan(alpha));
+    } else if (M_PI <= beta && beta < 3 * M_PI / 2) {
+      ang[0] += atan(sin(3 * M_PI / 2 - beta) * tan(alpha));
+      ang[1] += atan(cos(3 * M_PI / 2 - beta) * tan(alpha));
     } else {
-      alpha = M_PI / (M_PI - ang[0]);
+      ang[0] += atan(sin(2 * M_PI - beta) * tan(alpha));
+      ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
     }
-    ang[0] = M_PI * gsl_ran_beta(gen, alpha, beta);
-
-    if (ang[1] < 0) {
-      ang[1] += 2 * M_PI;
-    }
-    if (0 < ang[1] && ang[1] <= M_PI) {
-      alpha = 2;
-      beta = 2 * M_PI / ang[1];
-    } else {
-      alpha = 2 * M_PI / (2 * M_PI - ang[1]);
-      beta = 2;
-    }
-    ang[1] = 2 * M_PI * gsl_ran_beta(gen, alpha, beta);
-    return;
+    return alpha;
   }
 
-  int simulate(const double dt, const double lb, const double absorption_e,
-               gsl_rng *gen) {
-    double inelastic_jump_rate, elastic_jump_rate, e;
-    double jump_rate, jump_time, alpha;
+  int simulate(const double dt, const double absorption_energy, gsl_rng *gen,
+               const CS_1d &nonelastic_cs, const CS_2d &angle_cdf,
+               const CS_3d &energy_cdf) {
+    double nonelastic_jump_rate, elastic_jump_rate, alpha, elastic_min_scatter,
+        exit_cos;
     int ix = 1;
-    do {
-      inelastic_jump_rate = sigma_inelastic_ub();
-      elastic_jump_rate = sigma_elastic(absorption_e);
-      jump_rate = inelastic_jump_rate + elastic_jump_rate;
-      jump_time = gsl_ran_exponential(gen, 1 / jump_rate);
-
-      int nsteps = ceil(jump_time / dt);
-      int m = 0;
-      while (m < nsteps && energy[ix - 1] > absorption_e) {
-        spherical_bm(jump_time / nsteps, ix, gen);
-        m++;
-      }
-      e = energy[ix - 1];
-      alpha = (sigma_inelastic(e) + sigma_elastic(e)) / jump_rate;
-      if (e > absorption_e && gsl_rng_uniform(gen) < alpha) {
-        alpha = sigma_elastic(e) / (sigma_inelastic(e) + sigma_elastic(e));
-        if (gsl_rng_uniform(gen) < alpha) {
-          elastic_scatter(omega[ix - 1], lb, gen);
+    while (energy[ix - 1] > absorption_energy) {
+      spherical_bm(dt, ix, gen);
+      if (energy[ix - 1] > absorption_energy) {
+        nonelastic_jump_rate =
+            nonelastic_cross_section(energy[ix - 1], nonelastic_cs);
+        elastic_min_scatter = 2.5 * multiple_scattering_sd(energy[ix - 1], dt);
+        elastic_jump_rate = 0;
+        if (elastic_min_scatter >= M_PI) {
+          elastic_jump_rate = 0;
         } else {
-          inelastic_scatter(omega[ix - 1], gen);
-          energy[ix - 1] *= gsl_rng_uniform(gen);
-          s[ix - 1] = (energy[ix - 2] - energy[ix - 1]) /
-                      fmax(dt, dist(x[ix - 1], x[ix - 2]));
+          elastic_jump_rate =
+              elastic_cross_section(energy[ix - 1], elastic_min_scatter);
+        }
+        alpha = elastic_jump_rate + nonelastic_jump_rate;
+        if (gsl_rng_uniform(gen) < 1 - exp(-alpha * dt)) {
+          if (gsl_rng_uniform(gen) < elastic_jump_rate / alpha) {
+            // Undo change in angle due to diffusion here because it is
+            // accounted for in the Rutherford cross section in elastic_scatter.
+            omega[ix - 1][0] = omega[ix - 2][0];
+            omega[ix - 1][1] = omega[ix - 2][1];
+            elastic_scatter(omega[ix - 1], elastic_min_scatter, gen);
+          } else {
+            exit_cos = nonelastic_scatter(omega[ix - 1], energy[ix - 1], gen,
+                                          angle_cdf);
+            energy[ix - 1] = energy_cdf.sample(energy[ix - 1], exit_cos, gen);
+            s[ix - 1] = (energy[ix - 2] - energy[ix - 1]);
+          }
         }
       }
-    } while (energy[ix - 1] > absorption_e);
+    }
     return ix;
   }
 

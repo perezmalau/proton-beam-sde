@@ -60,7 +60,7 @@ struct grid_2d {
     for (int i = 0; i < len; i++) {
       ix = floor(y[i][0] / dx);
       iy = floor(fabs(y[i][1]) / dx);
-      if (ix > 0 && y[i][2] >= 0 && y[i][2] < dx) {
+      if (ix >= 0 && y[i][2] >= 0 && y[i][2] < dx) {
         if (y[i][1] >= 0) {
           if (iy >= x_pos[ix].size()) {
             x_pos[ix].resize(iy + 1, 0);
@@ -84,7 +84,7 @@ struct grid_2d {
     for (int i = 0; i < len; i++) {
       ix = floor(y[i][0] / dx);
       iy = floor(fabs(y[i][1]) / dx);
-      if (ix > 0) {
+      if (ix >= 0) {
         if (y[i][1] >= 0) {
           if (iy >= x_pos[ix].size()) {
             x_pos[ix].resize(iy + 1, 0);
