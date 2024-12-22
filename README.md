@@ -9,6 +9,12 @@ In Unix-like environments, simply call `make` in the project root. You will need
 - the [GNU Scientific Library](https://www.gnu.org/software/gsl/) (tested on version 2.7.1),
 - the [libconfig](https://hyperrealm.github.io/libconfig/) package (tested on version 1.5).
 
+# Precomputing cross sections
+
+Run `proton_nonelastic_splines.py` in the project root. The root folder must contain nonelastic cross
+section data for collision of protons in water in the ENDF-6 format, available from [ENDF](https://www.nndc.bnl.gov/endf/).
+Once the resulting cross section splines have been computed, this step need not be executed again.
+
 # Usage
 
 Simulation and output parameters are specified in the config file `sim.cfg`. In particular, you can
@@ -17,7 +23,6 @@ modify:
 - the radius of the nozzle from which protons are emitted,
 - the distribution of the initial energy of the protons,
 - the simulator time-step,
-- the minimum elastic scatter angle (scattering at lower angles being subsumed into a diffusion term),
 - the energy at which a proton is absorbed and its path ends,
 - the side length of output voxelation (**Warning**: very small voxels result in a large memory cost,
   especially if 3d output is desired),
@@ -32,7 +37,7 @@ modify:
 After compilation, run the simulation by calling `./simulate sim.cfg` at the project root.
 You can also replace the `sim.cfg` argument with the path to any other appropriate config file.
 **Warning**: The default number of protons in `sim.cfg` is set to one million, and voxel sizes and time
-steps are also set to a rather high resolution. As a result, the simulation can take around an hour to run.
+steps are also set to a moderate resolution. As a result, the simulation can take around two minutes.
 
 # Post-processing
 
