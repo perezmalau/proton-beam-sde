@@ -53,3 +53,9 @@ If you have used the default number of protons, as well as output modes and path
 run `plots.R` to produce heatmaps of the integrated 2d dose, the 2d dose slice, and the integrated 1d dose.
 Make sure the R working directory is set to the project root (or the location of your simulation output files,
 if different).
+
+# Python
+
+The `Python` folder contains an equivalent Python implementation, which still requires precomputed cross
+sections stored in the proect root. The Python implementation is much slower (100k replicates in about an hour
+as opposed to a million in 2 minutes), but useful for prototyping. See `Python/plots_3d.py` for example usage.
