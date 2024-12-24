@@ -169,6 +169,16 @@ struct proton_path {
     double y = wright_fisher(
         pow(multiple_scattering_sd(energy[ix - 1], time_increment), 2), gen);
     double theta = 2 * M_PI * gsl_rng_uniform(gen);
+    // Set up defaults for when z is near (0, 0, 1)
+    u[0] = 1;
+    u[1] = 1;
+    u[2] = 1;
+    if (z[0] > 0) {
+      u[0] = -1;
+    }
+    if (z[1] > 0) {
+      u[1] = -1;
+    }
     double denom = sqrt(z[0] * z[0] + z[1] * z[1] + (z[2] - 1) * (z[2] - 1));
     if (denom > 1e-10) {
       u[0] = -z[0] / denom;
@@ -306,9 +316,7 @@ struct proton_path {
             nonelastic_cross_section(energy[ix - 1], nonelastic_cs);
         elastic_min_scatter = 2.5 * multiple_scattering_sd(energy[ix - 1], dt);
         elastic_jump_rate = 0;
-        if (elastic_min_scatter >= M_PI) {
-          elastic_jump_rate = 0;
-        } else {
+        if (elastic_min_scatter < M_PI) {
           elastic_jump_rate =
               elastic_cross_section(energy[ix - 1], elastic_min_scatter);
         }
