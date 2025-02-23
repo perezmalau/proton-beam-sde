@@ -83,9 +83,9 @@ class proton_path:
         A_hyd = 1
         mpcsq = 938.346 # mass of proton * speed of light squared, MeV
         # radiation length of oxygen, g / cm^2
-        x_oxy = A_oxy * 716.4 * math.log(287 / math.sqrt(Z_oxy)) / (Z_oxy * (Z_oxy + 1))
+        x_oxy = A_oxy * 716.4 / (Z_oxy * (Z_oxy + 1) * math.log(287 / math.sqrt(Z_oxy)))
         # radiation length of hydrogen, g / cm^2
-        x_hyd = A_hyd * 716.4 * math.log(287 / math.sqrt(Z_hyd)) / (Z_hyd * (Z_hyd + 1))
+        x_hyd = A_hyd * 716.4 / (Z_hyd * (Z_hyd + 1) * math.log(287 / math.sqrt(Z_hyd)))
         # radiation length of water via Bragg additivity rule
         x0 = (2 * A_hyd + A_oxy) * x_oxy * x_hyd / (A_oxy * x_hyd + 2 * A_hyd * x_oxy)
         pv = (2 * mpcsq + e0) * e0 / (mpcsq + e0)
