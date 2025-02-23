@@ -138,10 +138,10 @@ struct proton_path {
     double mpcsq = 938.346; // mass of proton * speed of light squared, MeV
     // radiation length of oxygen, g / cm^2
     double x_oxy =
-        A_oxy * 716.4 * log(287 / sqrt(Z_oxy)) / (Z_oxy * (Z_oxy + 1));
+        A_oxy * 716.4 / (Z_oxy * (Z_oxy + 1) * log(287 / sqrt(Z_oxy)));
     // radiation length of hydrogen, g / cm^2
     double x_hyd =
-        A_hyd * 716.4 * log(287 / sqrt(Z_hyd)) / (Z_hyd * (Z_hyd + 1));
+        A_hyd * 716.4 / (Z_hyd * (Z_hyd + 1) * log(287 / sqrt(Z_hyd)));
     // radiation length of water via Bragg additivity rule
     double x0 = (2 * A_hyd + A_oxy) * x_oxy * x_hyd /
                 (A_oxy * x_hyd + 2 * A_hyd * x_oxy);
