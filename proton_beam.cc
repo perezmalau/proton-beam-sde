@@ -146,7 +146,9 @@ struct proton_path {
     double x0 = (2 * A_hyd + A_oxy) * x_oxy * x_hyd /
                 (A_oxy * x_hyd + 2 * A_hyd * x_oxy);
     double pv = (2 * mpcsq + e) * e / (mpcsq + e);
-    double ret = 13.6 * sqrt(dt / x0) * sqrt(1 + 0.105 * log(dt / x0) + 0.0035 * pow(log(dt / x0), 2)) / pv;
+    double ret =
+        13.6 * sqrt(dt / x0) *
+        sqrt(1 + 0.105 * log(dt / x0) + 0.0035 * pow(log(dt / x0), 2)) / pv;
     double Z = Z_oxy + 2 * Z_hyd;
     double f = 1 - 0.24 / (Z * (Z + 1));
     return f * ret;
@@ -257,12 +259,13 @@ struct proton_path {
     double A_oxy = 16;
     double A_hyd = 1;
     double c = exp(log_barns_to_cmsq + log_water_density);
-    return c * (A_oxy * elastic_oxy + 2 * A_hyd * elastic_hyd) / (A_oxy + 2 * A_hyd); // rate per cm
+    return c * (A_oxy * elastic_oxy + 2 * A_hyd * elastic_hyd) /
+           (A_oxy + 2 * A_hyd); // rate per cm
   }
 
   double rutherford_cross_section(const double e, const double lb) {
-    double Z_oxy = 8;  // atomic number
-    double Z_hyd = 1;  // atomic number
+    double Z_oxy = 8; // atomic number
+    double Z_hyd = 1; // atomic number
     double log_ahbarc = log(197.3 / 137) - 13 * log(10);
     double mpcsq = 938.346; // mass of proton * speed of light squared, MeV
     double pv = (2 * mpcsq + e) * e / (mpcsq + e);
@@ -359,7 +362,7 @@ struct proton_path {
     while (energy[ix - 1] > absorption_energy) {
       spherical_bm(dt, ix, gen);
       if (energy[ix - 1] > absorption_energy) {
-        nonelastic_jump_rate = 
+        nonelastic_jump_rate =
             nonelastic_cross_section(energy[ix - 1], nonelastic_cs);
         rutherford_min_scatter =
             2.5 * multiple_scattering_sd(energy[ix - 1], dt);
