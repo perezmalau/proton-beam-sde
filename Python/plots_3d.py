@@ -10,11 +10,11 @@ import sys
 
 """Initilise starting configoration"""
 x0 = [0, 0, 0]
-omega0 = [np.pi/2, 0]
+omega0 = [np.pi / 2, 0]
 E0 = 100
 dt = 0.05
 
-N = 100000
+N = 10000
 
 """Simulate paths"""
 
@@ -22,7 +22,7 @@ N = 100000
 radius = 0.05
 
 # Generate random angles
-theta = np.random.uniform(0, 2*np.pi, N)
+theta = np.random.uniform(0, 2 * np.pi, N)
 phi = np.random.uniform(0, np.pi, N)
 
 # Points on the circle
@@ -46,7 +46,9 @@ for i in range(len(result.points)):
     x_res.append(result.points[i][0][0])
     y_res.append(result.points[i][0][1])
     s_res.append(result.points[i][3])
-heatmap, xedges, yedges = np.histogram2d(x_res, y_res, bins=90, range=[x_range, y_range], weights=s_res, density=False)
+heatmap, xedges, yedges = np.histogram2d(
+    x_res, y_res, bins=90, range=[x_range, y_range], weights=s_res, density=False
+)
 
 for point in x[1:]:
     result = proton_path(point, omega0, E0, dt)
@@ -57,15 +59,23 @@ for point in x[1:]:
         x_res.append(result.points[i][0][0])
         y_res.append(result.points[i][0][1])
         s_res.append(result.points[i][3])
-    heatmap_tmp, xedges, yedges = np.histogram2d(x_res, y_res, bins=90, range=[x_range, y_range], weights=s_res, density=False)
+    heatmap_tmp, xedges, yedges = np.histogram2d(
+        x_res, y_res, bins=90, range=[x_range, y_range], weights=s_res, density=False
+    )
     heatmap = heatmap + heatmap_tmp
 
 np.divide(heatmap, N)
 
 fig, ax = plt.subplots(figsize=(8, 8))  # Adjust the size as needed
-seaborn.heatmap(np.transpose(heatmap), cmap='viridis', norm=mcolors.LogNorm(), yticklabels=[round(x, 1) for x in np.linspace(-5,5,90)], xticklabels=[round(x, 1) for x in np.linspace(0,9,90)])
+seaborn.heatmap(
+    np.transpose(heatmap),
+    cmap="viridis",
+    norm=mcolors.LogNorm(),
+    yticklabels=[round(x, 1) for x in np.linspace(-5, 5, 90)],
+    xticklabels=[round(x, 1) for x in np.linspace(0, 9, 90)],
+)
 
-plt.savefig('heatmap.pdf')
+plt.savefig("heatmap.pdf")
 
 
 """Monte-Carlo for Bragg peak"""
@@ -73,6 +83,4 @@ plt.savefig('heatmap.pdf')
 fig, ax = plt.subplots()
 plt.plot(np.divide(np.sum(heatmap, axis=1), N))
 
-plt.savefig('bragg-peak.pdf')
-
-
+plt.savefig("bragg-peak.pdf")
