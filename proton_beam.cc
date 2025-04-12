@@ -146,8 +146,10 @@ struct proton_path {
     double x0 = (2 * A_hyd + A_oxy) * x_oxy * x_hyd /
                 (A_oxy * x_hyd + 2 * A_hyd * x_oxy);
     double pv = (2 * mpcsq + e) * e / (mpcsq + e);
-    double ret = 14.1 * sqrt(dt / x0) * (1 + log10(dt / x0) / 9) / pv;
-    return ret;
+    double ret = 13.6 * sqrt(dt / x0) * sqrt(1 + 0.105 * log(dt / x0) + 0.0035 * pow(log(dt / x0), 2)) / pv;
+    double Z = Z_oxy + 2 * Z_hyd;
+    double f = 1 - 0.24 / (Z * (Z + 1));
+    return f * ret;
   }
 
   double energy_straggling_sd() {
@@ -222,10 +224,12 @@ struct proton_path {
     } else {
       x[ix][2] = x[ix - 1][2] - (cos(v0) + cos(v1)) / 2;
     }
-    energy[ix] = energy[ix - 1] -
-                 bethe_bloch(energy[ix - 1]) * dist(x[ix - 1], x[ix]) +
+    energy[ix] =
+        energy[ix - 1] -
+        fmax(bethe_bloch(energy[ix - 1]) * dist(x[ix - 1], x[ix]) +
                  sqrt(dist(x[ix - 1], x[ix])) * energy_straggling_sd() *
-                     gsl_ran_gaussian_ziggurat(gen, 1);
+                     gsl_ran_gaussian_ziggurat(gen, 1),
+             0);
     energy[ix] = fmax(energy[ix], 0);
     s[ix] = (energy[ix - 1] - energy[ix]);
     ix++;
@@ -243,11 +247,22 @@ struct proton_path {
     return c * ret; // rate per cm
   }
 
-  double elastic_cross_section(const double e, const double lb) {
+  double elastic_cross_section(const double e, const CS_1d &elastic_cs_oxygen,
+                               const CS_1d &elastic_cs_hydrogen,
+                               double &elastic_oxy, double &elastic_hyd) {
+    elastic_oxy = elastic_cs_oxygen.evaluate(e);
+    elastic_hyd = elastic_cs_hydrogen.evaluate(e);
+    double log_water_density = 22 * log(10) + log(3.345); // molecules / cm^3
+    double log_barns_to_cmsq = -24 * log(10);
+    double A_oxy = 16;
+    double A_hyd = 1;
+    double c = exp(log_barns_to_cmsq + log_water_density);
+    return c * (A_oxy * elastic_oxy + 2 * A_hyd * elastic_hyd) / (A_oxy + 2 * A_hyd); // rate per cm
+  }
+
+  double rutherford_cross_section(const double e, const double lb) {
     double Z_oxy = 8;  // atomic number
     double Z_hyd = 1;  // atomic number
-    double A_oxy = 16; // atomic mass
-    double A_hyd = 1;  // atomic mass
     double log_ahbarc = log(197.3 / 137) - 13 * log(10);
     double mpcsq = 938.346; // mass of proton * speed of light squared, MeV
     double pv = (2 * mpcsq + e) * e / (mpcsq + e);
@@ -256,13 +271,12 @@ struct proton_path {
         exp(2 * (log_ahbarc + log(cos(lb / 2)) - log(pv) - log(sin(lb / 2))) +
             log_density) *
         M_PI;
-    double ret = sig * (A_oxy * pow(Z_oxy, 2) + 2 * A_hyd * pow(Z_hyd, 2)) /
-                 (A_oxy + 2 * A_hyd);
+    double ret = sig * pow(Z_oxy + 2 * Z_hyd, 2);
     return ret;
   }
 
-  void elastic_scatter(std::vector<double> &ang, const double lb,
-                       gsl_rng *gen) {
+  void rutherford_scatter(std::vector<double> &ang, const double lb,
+                          gsl_rng *gen) {
     double beta = 2 * M_PI * gsl_rng_uniform(gen);
     double u = gsl_rng_uniform(gen);
     double alpha = acos((cos(lb) - u * pow(cos(lb / 2), 2)) /
@@ -303,35 +317,78 @@ struct proton_path {
     return alpha;
   }
 
+  double elastic_scatter(std::vector<double> &ang, const double e, gsl_rng *gen,
+                         const CS_2d &angle_oxy_cdf, const CS_2d &angle_hyd_cdf,
+                         const double elastic_oxy, const double elastic_hyd) {
+    double beta = 2 * M_PI * gsl_rng_uniform(gen);
+    double alpha = 0;
+    double A_oxy = 16;
+    double A_hyd = 1;
+    if (gsl_rng_uniform(gen) <
+        A_oxy * elastic_oxy / (A_oxy * elastic_oxy + 2 * A_hyd * elastic_hyd)) {
+      alpha = angle_oxy_cdf.sample(e, gen);
+    } else {
+      alpha = angle_hyd_cdf.sample(e, gen);
+    }
+    if (0 <= beta && beta < M_PI / 2) {
+      ang[0] -= atan(sin(beta) * tan(alpha));
+      ang[1] -= atan(cos(beta) * tan(alpha));
+    } else if (M_PI / 2 <= beta && beta < M_PI) {
+      ang[0] -= atan(sin(M_PI - beta) * tan(alpha));
+      ang[1] += atan(cos(M_PI - beta) * tan(alpha));
+    } else if (M_PI <= beta && beta < 3 * M_PI / 2) {
+      ang[0] += atan(sin(3 * M_PI / 2 - beta) * tan(alpha));
+      ang[1] += atan(cos(3 * M_PI / 2 - beta) * tan(alpha));
+    } else {
+      ang[0] += atan(sin(2 * M_PI - beta) * tan(alpha));
+      ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
+    }
+    return alpha;
+  }
+
   int simulate(const double dt, const double absorption_energy, gsl_rng *gen,
-               const CS_1d &nonelastic_cs, const CS_2d &angle_cdf,
-               const CS_3d &energy_cdf) {
-    double nonelastic_jump_rate, elastic_jump_rate, alpha, elastic_min_scatter,
-        exit_cos;
+               const CS_1d &nonelastic_cs, const CS_1d &elastic_cs_oxygen,
+               const CS_1d &elastic_cs_hydrogen,
+               const CS_2d &nonelastic_angle_cdf,
+               const CS_2d &elastic_angle_oxygen_cdf,
+               const CS_2d &elastic_angle_hydrogen_cdf,
+               const CS_3d &nonelastic_energy_cdf) {
+    double nonelastic_jump_rate, elastic_jump_rate, rutherford_rate, alpha,
+        rutherford_min_scatter, exit_cos, u, elastic_oxy, elastic_hyd;
     int ix = 1;
     while (energy[ix - 1] > absorption_energy) {
       spherical_bm(dt, ix, gen);
       if (energy[ix - 1] > absorption_energy) {
-        nonelastic_jump_rate =
+        nonelastic_jump_rate = 
             nonelastic_cross_section(energy[ix - 1], nonelastic_cs);
-        elastic_min_scatter = 2.5 * multiple_scattering_sd(energy[ix - 1], dt);
-        elastic_jump_rate = 0;
-        if (elastic_min_scatter < M_PI) {
-          elastic_jump_rate =
-              elastic_cross_section(energy[ix - 1], elastic_min_scatter);
+        rutherford_min_scatter =
+            2.5 * multiple_scattering_sd(energy[ix - 1], dt);
+        elastic_jump_rate = elastic_cross_section(
+            energy[ix - 1], elastic_cs_oxygen, elastic_cs_hydrogen, elastic_oxy,
+            elastic_hyd);
+        rutherford_rate = 0;
+        if (rutherford_min_scatter < M_PI) {
+          rutherford_rate =
+              rutherford_cross_section(energy[ix - 1], rutherford_min_scatter);
         }
-        alpha = elastic_jump_rate + nonelastic_jump_rate;
+        alpha = elastic_jump_rate + nonelastic_jump_rate + rutherford_rate;
         if (gsl_rng_uniform(gen) < 1 - exp(-alpha * dt)) {
-          if (gsl_rng_uniform(gen) < elastic_jump_rate / alpha) {
+          u = gsl_rng_uniform(gen);
+          if (u < rutherford_rate / alpha) {
             // Undo change in angle due to diffusion here because it is
             // accounted for in the Rutherford cross section in elastic_scatter.
             omega[ix - 1][0] = omega[ix - 2][0];
             omega[ix - 1][1] = omega[ix - 2][1];
-            elastic_scatter(omega[ix - 1], elastic_min_scatter, gen);
+            rutherford_scatter(omega[ix - 1], rutherford_min_scatter, gen);
+          } else if (u < (rutherford_rate + elastic_jump_rate) / alpha) {
+            exit_cos = elastic_scatter(
+                omega[ix - 1], energy[ix - 1], gen, elastic_angle_oxygen_cdf,
+                elastic_angle_hydrogen_cdf, elastic_oxy, elastic_hyd);
           } else {
             exit_cos = nonelastic_scatter(omega[ix - 1], energy[ix - 1], gen,
-                                          angle_cdf);
-            energy[ix - 1] = energy_cdf.sample(energy[ix - 1], exit_cos, gen);
+                                          nonelastic_angle_cdf);
+            energy[ix - 1] =
+                nonelastic_energy_cdf.sample(energy[ix - 1], exit_cos, gen);
             s[ix - 1] = (energy[ix - 2] - energy[ix - 1]);
           }
         }

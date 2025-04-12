@@ -26,8 +26,12 @@ int main(int argc, char **argv) {
   gsl_rng_set(gen, time(NULL));
 
   CS_1d nonelastic_rate("proton_nonelastic_cs.txt");
-  CS_2d angle_cdf("proton_exit_angle_cdf.txt");
-  CS_3d energy_cdf("proton_exit_energy_cdf.txt");
+  CS_1d elastic_rate_oxygen("proton_elastic_oxygen_cs.txt");
+  CS_1d elastic_rate_hydrogen("proton_elastic_hydrogen_cs.txt");
+  CS_2d nonelastic_angle_cdf("proton_exit_angle_cdf.txt");
+  CS_3d nonelastic_energy_cdf("proton_exit_energy_cdf.txt");
+  CS_2d elastic_angle_oxygen_cdf("proton_elastic_angle_oxygen_cdf.txt");
+  CS_2d elastic_angle_hydrogen_cdf("proton_elastic_angle_hydrogen_cdf.txt");
 
   double nozzle_radius, e0;
   std::vector<double> x(3, 0), w(2, 0);
@@ -99,8 +103,10 @@ int main(int argc, char **argv) {
 
   int len;
   for (int i = 0; i < nrep; i++) {
-    len = p.simulate(dt, absorption_e, gen, nonelastic_rate, angle_cdf,
-                     energy_cdf);
+    len = p.simulate(dt, absorption_e, gen, nonelastic_rate,
+                     elastic_rate_oxygen, elastic_rate_hydrogen,
+                     nonelastic_angle_cdf, elastic_angle_oxygen_cdf,
+                     elastic_angle_hydrogen_cdf, nonelastic_energy_cdf);
     if (output_1d == 1 || output_2d == 1) {
       g2d.add(p.x, p.s, len);
     }
