@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 
+#ifndef CS
+#define CS
+
 struct CS_3d {
 
   CS_3d(const std::string filename) : energy(), angle(), exit_energy(), cdf() {
@@ -44,6 +47,12 @@ struct CS_3d {
       exit_energy.push_back(tmp_vec);
     }
   }
+
+  CS_3d(const CS_3d &other)
+      : energy(other.energy), angle(other.angle),
+        exit_energy(other.exit_energy), cdf(other.cdf) {}
+
+  CS_3d() : energy(), angle(), exit_energy(), cdf() {}
 
   void print() const {
     for (unsigned int i = 0; i < energy.size(); i++) {
@@ -278,6 +287,11 @@ struct CS_2d {
     }
   }
 
+  CS_2d(const CS_2d &other)
+      : energy(other.energy), angle(other.angle), cdf(other.cdf) {}
+
+  CS_2d() : energy(), angle(), cdf() {}
+
   void print() const {
     for (unsigned int i = 0; i < energy.size(); i++) {
       std::cout << energy[i] << " ";
@@ -362,6 +376,10 @@ struct CS_1d {
     }
   }
 
+  CS_1d(const CS_1d &other) : energy(other.energy), rate(other.rate) {}
+
+  CS_1d() : energy(), rate() {}
+
   void print() const {
     for (unsigned int i = 0; i < energy.size(); i++) {
       std::cout << energy[i] << " ";
@@ -376,21 +394,25 @@ struct CS_1d {
 
   double evaluate(const double e) const {
     int r;
-    double ret;
-    if (e <= energy[0]) {
-      ret = rate[0];
-    } else if (e >= energy.back()) {
-      ret = rate.back();
-    } else {
-      r = 1;
-      while (e > energy[r]) {
-        r++;
+    double ret = 0;
+    if (energy.size() > 0) {
+      if (e <= energy[0]) {
+        ret = rate[0];
+      } else if (e >= energy.back()) {
+        ret = rate.back();
+      } else {
+        r = 1;
+        while (e > energy[r]) {
+          r++;
+        }
+        ret = ((energy[r] - e) * rate[r - 1] + (e - energy[r - 1]) * rate[r]) /
+              (energy[r] - energy[r - 1]);
       }
-      ret = ((energy[r] - e) * rate[r - 1] + (e - energy[r - 1]) * rate[r]) /
-            (energy[r] - energy[r - 1]);
     }
     return ret;
   }
 
   std::vector<double> energy, rate;
 };
+
+#endif

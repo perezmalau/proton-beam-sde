@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-struct grid_3d {
+struct Grid_3d {
 
-  grid_3d(const int n, const double dx_)
+  Grid_3d(const int n, const double dx_)
       : dx(dx_), x_pp(n), x_pm(n), x_mp(n), x_mm(n) {
     std::vector<double> tmp(1, 0);
     std::vector<std::vector<double>> tmp2(1, tmp);

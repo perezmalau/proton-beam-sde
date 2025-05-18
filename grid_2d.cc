@@ -5,10 +5,10 @@
 #include <string>
 #include <vector>
 
-struct grid_2d {
+struct Grid_2d {
 
-  grid_2d(const int n, const double dx_) : dx(dx_), x_pos(n), x_neg(n) {
-    std::vector<double> tmp(1, 0);
+  Grid_2d(const int n, const double dx_) : dx(dx_), x_pos(n), x_neg(n) {
+    std::vector<double> tmp;
     for (int i = 0; i < n; i++) {
       x_pos[i] = tmp;
       x_neg[i] = tmp;

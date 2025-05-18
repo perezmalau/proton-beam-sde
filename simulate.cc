@@ -1,8 +1,10 @@
 #include "cross_sections.cc"
 #include "grid_2d.cc"
 #include "grid_3d.cc"
+#include "material.cc"
 #include "proton_beam.cc"
 #include <cstdlib>
+#include <gsl/gsl_randist.h>
 #include <gsl/gsl_rng.h>
 #include <iostream>
 #include <libconfig.h++>
@@ -25,36 +27,72 @@ int main(int argc, char **argv) {
   gsl_rng *gen = gsl_rng_alloc(gsl_rng_mt19937);
   gsl_rng_set(gen, time(NULL));
 
-  CS_1d nonelastic_rate("proton_nonelastic_cs.txt");
-  CS_1d elastic_rate_oxygen("proton_elastic_oxygen_cs.txt");
-  CS_1d elastic_rate_hydrogen("proton_elastic_hydrogen_cs.txt");
-  CS_2d nonelastic_angle_cdf("proton_exit_angle_cdf.txt");
-  CS_3d nonelastic_energy_cdf("proton_exit_energy_cdf.txt");
-  CS_2d elastic_angle_oxygen_cdf("proton_elastic_angle_oxygen_cdf.txt");
-  CS_2d elastic_angle_hydrogen_cdf("proton_elastic_angle_hydrogen_cdf.txt");
+  std::vector<Atom> atoms;
+  int a, z;
+  std::string name;
+  std::ifstream file;
+  file.open("./Materials/atoms.txt");
+  std::string line, token;
+  while (getline(file, line)) {
+    std::stringstream iss;
+    iss << line;
+    getline(iss, token, ' ');
+    name = token.c_str();
+    getline(iss, token, ' ');
+    z = atoi(token.c_str());
+    getline(iss, token, ' ');
+    a = atoi(token.c_str());
+    if (name == "hydrogen") {
+      Atom tmp(a, z, "./Splines/" + name + "_el_rate.txt",
+               "./Splines/" + name + "_el_angle_cdf.txt");
+      atoms.push_back(tmp);
+    } else {
+      Atom tmp(a, z, "./Splines/" + name + "_el_rate.txt",
+               "./Splines/" + name + "_ne_rate.txt",
+               "./Splines/" + name + "_el_angle_cdf.txt",
+               "./Splines/" + name + "_ne_angle_cdf.txt",
+               "./Splines/" + name + "_ne_energy_cdf.txt");
+      atoms.push_back(tmp);
+    }
+  }
+  file.close();
 
-  double nozzle_radius, e0;
+  std::vector<std::string> material_names;
+  file.open("./Materials/materials.txt");
+  while (getline(file, line)) {
+    material_names.push_back(line);
+  }
+  file.close();
+
+  std::vector<Material> materials(material_names.size());
+  for (unsigned int i = 0; i < material_names.size(); i++) {
+    materials[i].read_material("./Materials/" + material_names[i], atoms);
+  }
+
+  double nozzle_radius, e0, initial_x_sd;
   std::vector<double> x(3, 0), w(2, 0);
   w[0] = M_PI / 2;
 
   libconfig::Config cfg;
   cfg.readFile(argv[1]);
   cfg.lookupValue("nozzle_radius", nozzle_radius);
-  double theta = 2 * M_PI * gsl_rng_uniform(gen);
-  double r = nozzle_radius * gsl_rng_uniform(gen);
-  x[1] = sqrt(r * nozzle_radius) * cos(theta);
-  x[2] = sqrt(r * nozzle_radius) * sin(theta);
+  cfg.lookupValue("initial_x_sd", initial_x_sd);
+  do {
+    x[1] = gsl_ran_gaussian_ziggurat(gen, initial_x_sd);
+    x[2] = gsl_ran_gaussian_ziggurat(gen, initial_x_sd);
+  } while (x[1] * x[1] + x[2] * x[2] > nozzle_radius * nozzle_radius);
 
-  double initial_e_min, initial_e_max;
-  cfg.lookupValue("initial_e_min", initial_e_min);
-  cfg.lookupValue("initial_e_max", initial_e_max);
-  e0 = gsl_ran_flat(gen, initial_e_min, initial_e_max);
+  double initial_e_mean, initial_e_sd;
+  cfg.lookupValue("initial_e_mean", initial_e_mean);
+  cfg.lookupValue("initial_e_sd", initial_e_sd);
+  e0 = initial_e_mean + gsl_ran_gaussian_ziggurat(gen, initial_e_sd);
 
-  double dt, absorption_e;
+  double dt, absorption_e, air_gap;
   int nrep;
   cfg.lookupValue("step_size", dt);
   cfg.lookupValue("absorption_energy", absorption_e);
   cfg.lookupValue("replicates", nrep);
+  cfg.lookupValue("air_gap", air_gap);
 
   double grid_dx;
   cfg.lookupValue("grid_dx", grid_dx);
@@ -78,35 +116,32 @@ int main(int argc, char **argv) {
     cfg.lookupValue("out_path_2d_slice", path_slice);
   }
 
-  int n = solve_track_length(initial_e_max, dt, absorption_e);
+  int n =
+      solve_track_length(initial_e_mean + 3 * initial_e_sd, dt, absorption_e);
   // Extra 100 slots in case of energy straggling
   int extra = 100;
   proton_path p(e0, x, w, n + extra);
   // We need all grids to be initialised for code to compile,
   // but make unneeded ones tiny
-  n = solve_track_length(initial_e_max, grid_dx, absorption_e);
-  int tmp = n + extra;
+  int tmp = (n + extra) * grid_dx / dt;
   if (output_1d == 0 && output_2d == 0) {
     tmp = 1;
   }
-  grid_2d g2d(tmp, grid_dx);
-  tmp = n + extra;
+  Grid_2d g2d(tmp, grid_dx);
+  tmp = (n + extra) * grid_dx / dt;
   if (output_3d == 0) {
     tmp = 1;
   }
-  grid_3d g3d(tmp, grid_dx);
-  tmp = n + extra;
+  Grid_3d g3d(tmp, grid_dx);
+  tmp = (n + extra) * grid_dx / dt;
   if (output_2d_slice == 0) {
     tmp = 1;
   }
-  grid_2d g2d_slice(tmp, grid_dx);
+  Grid_2d g2d_slice(tmp, grid_dx);
 
   int len;
   for (int i = 0; i < nrep; i++) {
-    len = p.simulate(dt, absorption_e, gen, nonelastic_rate,
-                     elastic_rate_oxygen, elastic_rate_hydrogen,
-                     nonelastic_angle_cdf, elastic_angle_oxygen_cdf,
-                     elastic_angle_hydrogen_cdf, nonelastic_energy_cdf);
+    len = p.simulate(dt, absorption_e, air_gap, gen, materials);
     if (output_1d == 1 || output_2d == 1) {
       g2d.add(p.x, p.s, len);
     }
@@ -116,11 +151,11 @@ int main(int argc, char **argv) {
     if (output_2d_slice == 1) {
       g2d_slice.add_to_slice(p.x, p.s, len);
     }
-    e0 = gsl_ran_flat(gen, initial_e_min, initial_e_max);
-    theta = 2 * M_PI * gsl_rng_uniform(gen);
-    r = nozzle_radius * gsl_rng_uniform(gen);
-    x[1] = sqrt(r * nozzle_radius) * cos(theta);
-    x[2] = sqrt(r * nozzle_radius) * sin(theta);
+    e0 = initial_e_mean + gsl_ran_gaussian_ziggurat(gen, initial_e_sd);
+    do {
+      x[1] = gsl_ran_gaussian_ziggurat(gen, initial_x_sd);
+      x[2] = gsl_ran_gaussian_ziggurat(gen, initial_x_sd);
+    } while (x[1] * x[1] + x[2] * x[2] > nozzle_radius * nozzle_radius);
     p.reset(e0, x, w);
   }
   if (output_1d == 1) {
