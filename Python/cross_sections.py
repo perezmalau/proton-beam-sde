@@ -6,32 +6,41 @@ import random
 class cross_section_1d:
 
     def __init__(self, path):
-        data = np.loadtxt(path)
-        self.energy = data[0]
-        self.rate = data[1]
+        self.energy = []
+        self.rate = []
+        if path != "":
+            data = np.loadtxt(path)
+            self.energy = data[0]
+            self.rate = data[1]
 
     def evaluate(self, e0):
-        if e0 < self.energy[0]:
-            ret = self.rate[0]
-        elif e0 > self.energy[-1]:
-            ret = self.rate[-1]
-        else:
-            i = 0
-            while self.energy[i] < e0:
-                i = i + 1
-            ret = (
-                (self.energy[i] - e0) * self.rate[i - 1]
-                + (e0 - self.energy[i - 1]) * self.rate[i]
-            ) / (self.energy[i] - self.energy[i - 1])
+        ret = 0
+        if len(self.energy) > 0:
+            if e0 < self.energy[0]:
+                ret = self.rate[0]
+            elif e0 > self.energy[-1]:
+                ret = self.rate[-1]
+            else:
+                i = 0
+                while self.energy[i] < e0:
+                    i = i + 1
+                ret = (
+                    (self.energy[i] - e0) * self.rate[i - 1]
+                    + (e0 - self.energy[i - 1]) * self.rate[i]
+                ) / (self.energy[i] - self.energy[i - 1])
         return ret
 
 
 class cross_section_2d:
 
     def __init__(self, path):
-        self.energy = np.loadtxt(path, max_rows=1)
-        self.angle = np.loadtxt(path, skiprows=1, max_rows=1)
-        self.cdf = np.loadtxt(path, skiprows=2)
+        self.energy = []
+        self.angle = []
+        self.cdf = []
+        if path != "":
+            self.energy = np.loadtxt(path, max_rows=1)
+            self.angle = np.loadtxt(path, skiprows=1, max_rows=1)
+            self.cdf = np.loadtxt(path, skiprows=2)
 
     def sample(self, e0):
         u = random.random()
@@ -77,11 +86,16 @@ class cross_section_2d:
 class cross_section_3d:
 
     def __init__(self, path):
-        self.energy = np.loadtxt(path, max_rows=1)
-        self.angle = np.loadtxt(path, skiprows=1, max_rows=1)
-        data = np.loadtxt(path, skiprows=2)
-        self.cdf = data[0::2, :]
-        self.exit_energy = data[1::2, :]
+        self.energy = []
+        self.angle = []
+        self.cdf = []
+        self.exit_energy = []
+        if path != "":
+            self.energy = np.loadtxt(path, max_rows=1)
+            self.angle = np.loadtxt(path, skiprows=1, max_rows=1)
+            data = np.loadtxt(path, skiprows=2)
+            self.cdf = data[0::2, :]
+            self.exit_energy = data[1::2, :]
 
     def find_energy_index(self, e0):
         ret = 0
@@ -153,7 +167,7 @@ class cross_section_3d:
                 ) / (self.cdf[r][c] - self.cdf[r][c - 1])
             else:
                 r = (e_row - 1) * len(self.angle) + ang_row
-                while u > cdf[r][c]:
+                while u > self.cdf[r][c]:
                     c = c + 1
                 ret = (
                     (self.cdf[r][c] - u) * min(e0, self.exit_energy[r][c - 1])
