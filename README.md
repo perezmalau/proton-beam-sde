@@ -18,6 +18,8 @@ modify:
 - the radius of the nozzle from which protons are emitted,
 - the Gaussian distribution of the initial position of the protons, conditioned to lie in the nozzle,
 - the Gaussian distribution of the initial energy of the protons,
+- the length of material 1 the beam traverses before it enters material 2. **This is currently the
+only supported pattern of materials, intended to allow for air before the beam enters a water phantom.**
 - the simulator time-step,
 - the energy at which a proton is absorbed and its path ends,
 - the side length of output voxelation (**Warning**: very small voxels result in a large memory cost,
