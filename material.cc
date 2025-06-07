@@ -8,24 +8,24 @@
 struct Atom {
 
   Atom(const int a0, const int z0, const std::string el_r,
-       const std::string ne_r, const std::string el_a, const std::string ne_a,
-       const std::string ne_e)
-      : a(a0), z(z0), el_rate(el_r), ne_rate(ne_r), el_angle_cdf(el_a),
-        ne_angle_cdf(ne_a), ne_energy_cdf(ne_e) {}
+       const std::string ne_r, const std::string ne_y, const std::string el_a,
+       const std::string ne_a, const std::string ne_e)
+      : a(a0), z(z0), el_rate(el_r), ne_rate(ne_r), ne_yield(ne_y),
+        el_angle_cdf(el_a), ne_angle_cdf(ne_a), ne_energy_cdf(ne_e) {}
 
   // Constructor for zero non-elastic rate for hydrogen
   Atom(const int a0, const int z0, const std::string el_r,
        const std::string el_a)
-      : a(a0), z(z0), el_rate(el_r), ne_rate(), el_angle_cdf(el_a),
+      : a(a0), z(z0), el_rate(el_r), ne_rate(), ne_yield(), el_angle_cdf(el_a),
         ne_angle_cdf(), ne_energy_cdf() {}
 
   Atom(const Atom &other)
       : a(other.a), z(other.z), el_rate(other.el_rate), ne_rate(other.ne_rate),
-        el_angle_cdf(other.el_angle_cdf), ne_angle_cdf(other.ne_angle_cdf),
-        ne_energy_cdf(other.ne_energy_cdf) {}
+        ne_yield(other.ne_yield), el_angle_cdf(other.el_angle_cdf),
+        ne_angle_cdf(other.ne_angle_cdf), ne_energy_cdf(other.ne_energy_cdf) {}
 
   const int a, z;
-  CS_1d el_rate, ne_rate;
+  CS_1d el_rate, ne_rate, ne_yield;
   CS_2d el_angle_cdf, ne_angle_cdf;
   CS_3d ne_energy_cdf;
 };
@@ -140,7 +140,7 @@ struct Material {
     double log_molecule_density =
         log(density) + log_avogadro - log(a); // molecules / cm^3
     ret *= exp(log_barns_to_cmsq + log_molecule_density) / a;
-    return ret; // rate per cm
+    return 0.5 * ret; // rate per cm
   }
 
   double elastic_rate(const double e) const {
@@ -192,21 +192,27 @@ struct Material {
       ind++;
       tmp += at[ind].a * x[ind] * at[ind].ne_rate.evaluate(e) / rate;
     }
-    double alpha = at[ind].ne_angle_cdf.sample(e, gen);
-    if (0 <= beta && beta < M_PI / 2) {
-      ang[0] -= atan(sin(beta) * tan(alpha));
-      ang[1] -= atan(cos(beta) * tan(alpha));
-    } else if (M_PI / 2 <= beta && beta < M_PI) {
-      ang[0] -= atan(sin(M_PI - beta) * tan(alpha));
-      ang[1] += atan(cos(M_PI - beta) * tan(alpha));
-    } else if (M_PI <= beta && beta < 3 * M_PI / 2) {
-      ang[0] += atan(sin(3 * M_PI / 2 - beta) * tan(alpha));
-      ang[1] += atan(cos(3 * M_PI / 2 - beta) * tan(alpha));
+    double alpha = 0;
+    if (gsl_rng_uniform(gen) > at[ind].ne_yield.evaluate(e)) {
+      // proton absorbed & track ends
+      e = 0;
     } else {
-      ang[0] += atan(sin(2 * M_PI - beta) * tan(alpha));
-      ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
+      alpha = at[ind].ne_angle_cdf.sample(e, gen);
+      if (0 <= beta && beta < M_PI / 2) {
+        ang[0] -= atan(sin(beta) * tan(alpha));
+        ang[1] -= atan(cos(beta) * tan(alpha));
+      } else if (M_PI / 2 <= beta && beta < M_PI) {
+        ang[0] -= atan(sin(M_PI - beta) * tan(alpha));
+        ang[1] += atan(cos(M_PI - beta) * tan(alpha));
+      } else if (M_PI <= beta && beta < 3 * M_PI / 2) {
+        ang[0] += atan(sin(3 * M_PI / 2 - beta) * tan(alpha));
+        ang[1] += atan(cos(3 * M_PI / 2 - beta) * tan(alpha));
+      } else {
+        ang[0] += atan(sin(2 * M_PI - beta) * tan(alpha));
+        ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
+      }
+      e = at[ind].ne_energy_cdf.sample(e, alpha, gen);
     }
-    e = at[ind].ne_energy_cdf.sample(e, alpha, gen);
     return;
   }
 
