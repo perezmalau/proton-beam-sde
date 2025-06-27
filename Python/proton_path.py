@@ -25,7 +25,7 @@ class proton_path:
                 self.dt,
                 materials[material_index],
             )
-            if crossed == 0 and self.points[-1][0][0] > air_gap:
+            if crossed == 0 and self.points[-1][0][0] >= air_gap:
                 material_index = material_index + 1
                 crossed = 1
             if self.points[-1][2] > absorption_e:
