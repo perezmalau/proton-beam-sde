@@ -182,7 +182,7 @@ struct proton_path {
                      gsl_ran_gaussian_ziggurat(gen, 1),
              0);
     energy[ix] = fmax(energy[ix], 0);
-    s[ix] = (energy[ix - 1] - energy[ix]);
+    s[ix] = energy[ix - 1] - energy[ix];
     ix++;
     return;
   }
@@ -196,11 +196,11 @@ struct proton_path {
     int material_index = 0;
     int crossed = 0;
     while (energy[ix - 1] > absorption_energy) {
-      spherical_bm(dt, ix, gen, materials[material_index]);
-      if (crossed == 0 && x[ix - 1][0] > air_gap) {
+      if (crossed == 0 && x[ix - 1][0] >= air_gap) {
         material_index++;
         crossed = 1;
       }
+      spherical_bm(dt, ix, gen, materials[material_index]);
       if (energy[ix - 1] > absorption_energy) {
         nonelastic_jump_rate =
             materials[material_index].nonelastic_rate(energy[ix - 1]);

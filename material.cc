@@ -24,6 +24,18 @@ struct Atom {
         ne_yield(other.ne_yield), el_angle_cdf(other.el_angle_cdf),
         ne_angle_cdf(other.ne_angle_cdf), ne_energy_cdf(other.ne_energy_cdf) {}
 
+  double cm_to_lab_frame(const double ang, const double e0,
+                         const double e_delta) const {
+    double mp = 938.346; // mass of proton * c^2, MeV
+    double mn = mp * a;  // mass of colliding nucleus * c^2, MeV
+    double u = sqrt(e0 * (e0 + mp)) / (e0 + mp + mn);
+    double g = 1 / sqrt(1 - u * u);
+    double p = sqrt((e0 - e_delta) * (e0 - e_delta + 2 * mp));
+    double e = e0 - e_delta + mp;
+    double v_ratio = u * (e - u * p) / (p - u * e);
+    return atan(sin(ang) / (g * (cos(ang) + v_ratio)));
+  }
+
   const int a, z;
   CS_1d el_rate, ne_rate, ne_yield;
   CS_2d el_angle_cdf, ne_angle_cdf;
@@ -140,7 +152,7 @@ struct Material {
     double log_molecule_density =
         log(density) + log_avogadro - log(a); // molecules / cm^3
     ret *= exp(log_barns_to_cmsq + log_molecule_density) / a;
-    return 0.5 * ret; // rate per cm
+    return ret; // rate per cm
   }
 
   double elastic_rate(const double e) const {
@@ -193,11 +205,14 @@ struct Material {
       tmp += at[ind].a * x[ind] * at[ind].ne_rate.evaluate(e) / rate;
     }
     double alpha = 0;
+    double e_old = e;
     if (gsl_rng_uniform(gen) > at[ind].ne_yield.evaluate(e)) {
       // proton absorbed & track ends
       e = 0;
     } else {
       alpha = at[ind].ne_angle_cdf.sample(e, gen);
+      e = at[ind].ne_energy_cdf.sample(e, alpha, gen);
+      alpha = at[ind].cm_to_lab_frame(alpha, e_old, e_old - e);
       if (0 <= beta && beta < M_PI / 2) {
         ang[0] -= atan(sin(beta) * tan(alpha));
         ang[1] -= atan(cos(beta) * tan(alpha));
@@ -211,7 +226,6 @@ struct Material {
         ang[0] += atan(sin(2 * M_PI - beta) * tan(alpha));
         ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
       }
-      e = at[ind].ne_energy_cdf.sample(e, alpha, gen);
     }
     return;
   }
@@ -230,6 +244,7 @@ struct Material {
       tmp += at[ind].a * x[ind] * at[ind].el_rate.evaluate(e) / rate;
     }
     double alpha = at[ind].el_angle_cdf.sample(e, gen);
+    alpha = at[ind].cm_to_lab_frame(alpha, e, 0);
     if (0 <= beta && beta < M_PI / 2) {
       ang[0] -= atan(sin(beta) * tan(alpha));
       ang[1] -= atan(cos(beta) * tan(alpha));
