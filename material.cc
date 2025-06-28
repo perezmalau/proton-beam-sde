@@ -118,6 +118,8 @@ struct Material {
     double F = 0.98;
     double v = omega / (2 * (1 - F));
     double ret = sqrt(chi_c_sq * ((1 + v) * log(1 + v) / v - 1)) / (1 + F * F);
+    // map the radial angle from the plane dt away to the sphere of radius dt
+    ret *= dt / sqrt(ret * ret + dt * dt);
     return ret;
   }
 
