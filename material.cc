@@ -118,16 +118,17 @@ struct Material {
     double F = 0.98;
     double v = omega / (2 * (1 - F));
     double ret = sqrt(chi_c_sq * ((1 + v) * log(1 + v) / v - 1)) / (1 + F * F);
-    // map the radial angle from the plane dt away to the sphere of radius dt
     ret *= dt / sqrt(ret * ret + dt * dt);
     return ret;
   }
 
-  double energy_straggling_sd() const {
+  double energy_straggling_sd(const double e) const {
     double alpha = 1 / 137.0;
     double log_hbar = -21 * log(10) + log(4.136) - log(2 * M_PI); // MeV * s
     double log_c = log(29979245800);                              // cm / s
     double log_avogadro = log(6) + 23 * log(10);
+    double mpcsq = 938.346; // mass of proton * speed of light squared, MeV
+    double betasq = (2 * mpcsq + e) * e / pow(mpcsq + e, 2);
     double a = 0;
     double z = 0;
     for (unsigned int i = 0; i < at.size(); i++) {
@@ -137,7 +138,7 @@ struct Material {
     double log_molecule_density =
         log(density) + log_avogadro - log(a); // molecules / cm^3
     double ret =
-        4 * M_PI * z *
+        4 * M_PI * z * (1 - betasq / 2) / sqrt(1 - betasq) *
         exp(2 * (log(alpha) + log_hbar + log_c) + log_molecule_density);
     return sqrt(ret);
   }

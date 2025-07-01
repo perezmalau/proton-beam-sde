@@ -175,12 +175,12 @@ struct proton_path {
     } else {
       x[ix][2] = x[ix - 1][2] - (cos(v0) + cos(v1)) / 2;
     }
-    energy[ix] =
-        energy[ix - 1] -
-        fmax(mat.bethe_bloch(energy[ix - 1]) * dist(x[ix - 1], x[ix]) +
-                 sqrt(dist(x[ix - 1], x[ix])) * mat.energy_straggling_sd() *
-                     gsl_ran_gaussian_ziggurat(gen, 1),
-             0);
+    energy[ix] = energy[ix - 1] -
+                 fmax(mat.bethe_bloch(energy[ix - 1]) * dist(x[ix - 1], x[ix]) +
+                          sqrt(dist(x[ix - 1], x[ix])) *
+                              mat.energy_straggling_sd(energy[ix - 1]) *
+                              gsl_ran_gaussian_ziggurat(gen, 1),
+                      0);
     energy[ix] = fmax(energy[ix], 0);
     s[ix] = energy[ix - 1] - energy[ix];
     ix++;
