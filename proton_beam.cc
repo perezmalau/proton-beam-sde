@@ -180,11 +180,11 @@ struct proton_path {
       x[ix][1] = x[ix - 1][1] + dt * sin(v0) * sin(w0);
     }
 
-    // Z position update (already has protection)
+    // Z position update
     if (fabs(v0 - v1) > 1e-9) {
       x[ix][2] = x[ix - 1][2] + (sin(v0) - sin(v1)) * dt / (v0 - v1);
     } else {
-      x[ix][2] = x[ix - 1][2] - dt * (cos(v0) + cos(v1)) / 2;  // missing dt ?
+      x[ix][2] = x[ix - 1][2] - dt * (cos(v0) + cos(v1)) / 2;
     }
     energy[ix] = energy[ix - 1] -
                  fmax(mat.bethe_bloch(energy[ix - 1]) * dist(x[ix - 1], x[ix]) +
