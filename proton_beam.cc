@@ -160,20 +160,31 @@ struct proton_path {
     double w0 = omega[ix - 1][1];
     double w1 = omega[ix][1];
     double dt = time_increment;
-    x[ix][0] = x[ix - 1][0] -
-               dt *
-                   ((v0 - v1) * (cos(v0) * cos(w0) - cos(v1) * cos(w1)) +
-                    (w0 - w1) * (sin(v0) * sin(w0) - sin(v1) * sin(w1))) /
-                   ((v0 - v1 + w0 - w1) * (v0 - v1 - w0 + w1));
-    x[ix][1] = x[ix - 1][1] +
-               dt *
-                   ((w0 - w1) * (cos(w0) * sin(v0) - cos(w1) * sin(v1)) -
-                    (v0 - v1) * (cos(v0) * sin(w0) - cos(v1) * sin(w1))) /
-                   ((v0 - v1 + w0 - w1) * (v0 - v1 - w0 + w1));
+
+    // Check for division by zero in x and y position updates
+    double denom_xy = (v0 - v1 + w0 - w1) * (v0 - v1 - w0 + w1);
+    if (fabs(denom_xy) > 1e-9) {
+      x[ix][0] = x[ix - 1][0] -
+                dt *
+                    ((v0 - v1) * (cos(v0) * cos(w0) - cos(v1) * cos(w1)) +
+                      (w0 - w1) * (sin(v0) * sin(w0) - sin(v1) * sin(w1))) /
+                    denom_xy;
+      x[ix][1] = x[ix - 1][1] +
+                dt *
+                    ((w0 - w1) * (cos(w0) * sin(v0) - cos(w1) * sin(v1)) -
+                      (v0 - v1) * (cos(v0) * sin(w0) - cos(v1) * sin(w1))) /
+                    denom_xy;
+    } else {
+      // Linear approximation when denominator is too small
+      x[ix][0] = x[ix - 1][0] + dt * sin(v0) * cos(w0);
+      x[ix][1] = x[ix - 1][1] + dt * sin(v0) * sin(w0);
+    }
+
+    // Z position update
     if (fabs(v0 - v1) > 1e-9) {
       x[ix][2] = x[ix - 1][2] + (sin(v0) - sin(v1)) * dt / (v0 - v1);
     } else {
-      x[ix][2] = x[ix - 1][2] - (cos(v0) + cos(v1)) / 2;
+      x[ix][2] = x[ix - 1][2] - dt * (cos(v0) + cos(v1)) / 2;
     }
     energy[ix] = energy[ix - 1] -
                  fmax(mat.bethe_bloch(energy[ix - 1]) * dist(x[ix - 1], x[ix]) +
