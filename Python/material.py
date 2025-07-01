@@ -106,15 +106,18 @@ class material:
         F = 0.98
         v = omega / (2 * (1 - F))
         ret = math.sqrt(chi_c_sq * ((1 + v) * math.log(1 + v) / v - 1)) / (1 + F * F)
+        ret = ret * dt / math.sqrt(ret * ret + dt * dt)
         return ret
 
-    def energy_straggling_sd(self):
+    def energy_straggling_sd(self, e0):
         alpha = 1 / 137.0
         log_hbar = (
             -21 * math.log(10) + math.log(4.136) - math.log(2 * math.pi)
         )  # MeV * s
         log_c = math.log(29979245800)  # cm / s
         log_avogadro = math.log(6) + 23 * math.log(10)
+        mpcsq = 938.346  # mass of proton * speed of light squared, MeV
+        betasq = (2 * mpcsq + e0) * e0 / (mpcsq + e0) ** 2
         a = sum(
             [self.x[i] * self.at[i].a for i in range(len(self.at))]
         )  # average molar mass
@@ -128,6 +131,8 @@ class material:
             4
             * math.pi
             * z
+            * (1 - betasq / 2)
+            / math.sqrt(1 - betasq)
             * math.exp(2 * (math.log(alpha) + log_hbar + log_c) + log_molecule_density)
         )
         return math.sqrt(ret)

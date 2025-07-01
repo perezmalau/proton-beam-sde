@@ -99,7 +99,7 @@ class proton_path:
         ]
         delta = np.linalg.norm(np.array(self.points[-1][0]) - np.array(pos))
         energy_mu = material.bethe_bloch(e0) * delta
-        energy_sd = math.sqrt(delta) * material.energy_straggling_sd()
+        energy_sd = math.sqrt(delta) * material.energy_straggling_sd(e0)
         energy = max(0, e0 - max(random.gauss(energy_mu, energy_sd), 0))
 
         self.points.append([pos, angle, energy])
