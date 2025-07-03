@@ -268,7 +268,7 @@ struct Material {
                           gsl_rng *gen) {
     double beta = 2 * M_PI * gsl_rng_uniform(gen);
     double u = gsl_rng_uniform(gen);
-    double alpha = acos((cos(lb) - u * pow(cos(lb / 2), 2)) /
+    double alpha = acos((pow(cos(lb / 2), 2) * (1 - u) - pow(sin(lb / 2), 2)) /
                         (1 - u * pow(cos(lb / 2), 2)));
     if (0 <= beta && beta < M_PI / 2) {
       ang[0] -= atan(sin(beta) * tan(alpha));
