@@ -290,7 +290,8 @@ class material:
         beta = 2 * math.pi * np.random.uniform()
         u = np.random.uniform()
         alpha = math.acos(
-            (math.cos(lb) - u * math.cos(lb / 2) ** 2) / (1 - u * math.cos(lb / 2) ** 2)
+            (math.cos(lb / 2) ** 2 * (1 - u) - math.sin(lb / 2) ** 2)
+            / (1 - u * math.cos(lb / 2) ** 2))
         )
         ang = ang0
         if 0 <= beta and beta < math.pi / 2:
