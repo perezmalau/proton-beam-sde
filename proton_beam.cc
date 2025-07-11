@@ -145,7 +145,7 @@ struct proton_path {
            2 * u[0] * u[2] * z[2];
     w[1] = (1 - 2 * u[1] * u[1]) * z[1] - 2 * u[0] * u[1] * z[0] -
            2 * u[1] * u[2] * z[2];
-    w[2] = (1 - 2 * u[2] * u[2]) * z[2] - 2 * u[0] * u[2] * z[0] +
+    w[2] = (1 - 2 * u[2] * u[2]) * z[2] - 2 * u[0] * u[2] * z[0] -
            2 * u[1] * u[2] * z[1];
     if (ix == int(omega.size())) {
       omega.resize(2 * omega.size(), omega.back());
