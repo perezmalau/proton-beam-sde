@@ -4,25 +4,27 @@
 
 #ifndef MAT
 #define MAT
-
 struct Atom {
-
   Atom(const int a0, const int z0, const std::string el_r,
        const std::string ne_r, const std::string ne_y, const std::string el_a,
-       const std::string ne_a, const std::string ne_e)
+       const std::string ne_a, const std::string ne_e, const std::string ne_ea)
       : a(a0), z(z0), el_rate(el_r), ne_rate(ne_r), ne_yield(ne_y),
-        el_angle_cdf(el_a), ne_angle_cdf(ne_a), ne_energy_cdf(ne_e) {}
+        el_angle_cdf(el_a), ne_angle_cdf(ne_a), ne_energy_cdf(ne_e),
+        ne_energy_angle_ENDF(ne_ea), Constants(a0, z0, 1, 1, 1, 1, 1, 1, 0, 0) {
+  }
 
   // Constructor for zero non-elastic rate for hydrogen
   Atom(const int a0, const int z0, const std::string el_r,
        const std::string el_a)
       : a(a0), z(z0), el_rate(el_r), ne_rate(), ne_yield(), el_angle_cdf(el_a),
-        ne_angle_cdf(), ne_energy_cdf() {}
+        ne_angle_cdf(), ne_energy_cdf(), ne_energy_angle_ENDF(), Constants() {}
 
   Atom(const Atom &other)
       : a(other.a), z(other.z), el_rate(other.el_rate), ne_rate(other.ne_rate),
         ne_yield(other.ne_yield), el_angle_cdf(other.el_angle_cdf),
-        ne_angle_cdf(other.ne_angle_cdf), ne_energy_cdf(other.ne_energy_cdf) {}
+        ne_angle_cdf(other.ne_angle_cdf), ne_energy_cdf(other.ne_energy_cdf),
+        ne_energy_angle_ENDF(other.ne_energy_angle_ENDF),
+        Constants(other.Constants) {}
 
   double cm_to_lab_frame(const double ang, const double e0,
                          const double e_delta) const {
@@ -33,13 +35,19 @@ struct Atom {
     double p = sqrt((e0 - e_delta) * (e0 - e_delta + 2 * mp));
     double e = e0 - e_delta + mp;
     double v_ratio = u * (e - u * p) / (p - u * e);
-    return atan(sin(ang) / (g * (cos(ang) + v_ratio)));
+    double out = atan(sin(ang) / (g * (cos(ang) + v_ratio)));
+    if (out < 0) {
+      out += M_PI;
+    }
+    return out;
   }
 
   const int a, z;
   CS_1d el_rate, ne_rate, ne_yield;
   CS_2d el_angle_cdf, ne_angle_cdf;
   CS_3d ne_energy_cdf;
+  CS_3dENDF ne_energy_angle_ENDF;
+  AtomConsts Constants;
 };
 
 struct Material {
@@ -82,7 +90,7 @@ struct Material {
     double denom = 0;
     for (unsigned int i = 0; i < at.size(); i++) {
       num += x[i] * 0.3072 * at[i].z * density *
-             (log(2 * mecsq * betasq / I * (1 - betasq)) - betasq) /
+             (log(2 * mecsq * betasq / (I * (1 - betasq))) - betasq) /
              betasq; // MeV / cm
       denom += at[i].a * x[i];
     }
@@ -207,28 +215,60 @@ struct Material {
       ind++;
       tmp += at[ind].a * x[ind] * at[ind].ne_rate.evaluate(e) / rate;
     }
-    double alpha = 0;
-    double e_old = e;
+    std::vector<double> alphatemp;
+    double alpha;
+    // double e_old = e;
     if (gsl_rng_uniform(gen) > at[ind].ne_yield.evaluate(e)) {
       // proton absorbed & track ends
       e = 0;
     } else {
-      alpha = at[ind].ne_angle_cdf.sample(e, gen);
-      e = at[ind].ne_energy_cdf.sample(e, alpha, gen);
-      alpha = at[ind].cm_to_lab_frame(alpha, e_old, e_old - e);
-      if (0 <= beta && beta < M_PI / 2) {
-        ang[0] -= atan(sin(beta) * tan(alpha));
-        ang[1] -= atan(cos(beta) * tan(alpha));
-      } else if (M_PI / 2 <= beta && beta < M_PI) {
-        ang[0] -= atan(sin(M_PI - beta) * tan(alpha));
-        ang[1] += atan(cos(M_PI - beta) * tan(alpha));
-      } else if (M_PI <= beta && beta < 3 * M_PI / 2) {
-        ang[0] += atan(sin(3 * M_PI / 2 - beta) * tan(alpha));
-        ang[1] += atan(cos(3 * M_PI / 2 - beta) * tan(alpha));
-      } else {
-        ang[0] += atan(sin(2 * M_PI - beta) * tan(alpha));
-        ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
+      // alpha = at[ind].ne_angle_cdf.sample(e, gen);
+      // e = at[ind].ne_energy_cdf.sample(e, alpha, gen);
+      // alpha = at[ind].cm_to_lab_frame(alpha, e_old, e_old - e);
+      // ENDF non-elastic scattering, both energy + angle from CM to LAB
+      alphatemp =
+          at[ind].ne_energy_angle_ENDF.sample(e, gen, at[ind].Constants);
+      e = alphatemp[0];
+      alpha = acos(alphatemp[1]);
+      double omega_new1 =
+          sin(ang[0]) * cos(ang[1]) * cos(alpha) +
+          (cos(ang[0]) * cos(ang[1]) * sin(beta) - sin(ang[1]) * cos(beta)) *
+              sin(alpha);
+      double omega_new2 =
+          sin(ang[0]) * sin(ang[1]) * cos(alpha) +
+          (cos(ang[0]) * sin(ang[1]) * sin(beta) + cos(ang[1]) * cos(beta)) *
+              sin(alpha);
+      double omega_new3 =
+          cos(ang[0]) * cos(alpha) - sin(ang[0]) * sin(beta) * sin(alpha);
+      double magnitude =
+          std::sqrt(omega_new1 * omega_new1 + omega_new2 * omega_new2 +
+                    omega_new3 * omega_new3);
+      omega_new1 /= magnitude;
+      omega_new2 /= magnitude;
+      omega_new3 /= magnitude;
+      if (fabs(omega_new3) > 1) {
+        omega_new3 = fmin(1, omega_new3);
+        omega_new3 = fmax(-1, omega_new3);
       }
+      ang[0] = acos(omega_new3);
+      ang[1] = atan2(omega_new2, omega_new1);
+      if (ang[1] < 0) {
+        ang[1] += 2 * M_PI;
+      }
+      /*
+    if (0 <= beta && beta < M_PI / 2) {
+      ang[0] -= atan(sin(beta) * tan(alpha));
+      ang[1] -= atan(cos(beta) * tan(alpha));
+    } else if (M_PI / 2 <= beta && beta < M_PI) {
+      ang[0] -= atan(sin(M_PI - beta) * tan(alpha));
+      ang[1] += atan(cos(M_PI - beta) * tan(alpha));
+    } else if (M_PI <= beta && beta < 3 * M_PI / 2) {
+      ang[0] += atan(sin(3 * M_PI / 2 - beta) * tan(alpha));
+      ang[1] += atan(cos(3 * M_PI / 2 - beta) * tan(alpha));
+    } else {
+      ang[0] += atan(sin(2 * M_PI - beta) * tan(alpha));
+      ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
+    }*/
     }
     return;
   }
@@ -248,6 +288,32 @@ struct Material {
     }
     double alpha = at[ind].el_angle_cdf.sample(e, gen);
     alpha = at[ind].cm_to_lab_frame(alpha, e, 0);
+    double omega_new1 =
+        sin(ang[0]) * cos(ang[1]) * cos(alpha) +
+        (cos(ang[0]) * cos(ang[1]) * sin(beta) - sin(ang[1]) * cos(beta)) *
+            sin(alpha);
+    double omega_new2 =
+        sin(ang[0]) * sin(ang[1]) * cos(alpha) +
+        (cos(ang[0]) * sin(ang[1]) * sin(beta) + cos(ang[1]) * cos(beta)) *
+            sin(alpha);
+    double omega_new3 =
+        cos(ang[0]) * cos(alpha) - sin(ang[0]) * sin(beta) * sin(alpha);
+    double magnitude =
+        std::sqrt(omega_new1 * omega_new1 + omega_new2 * omega_new2 +
+                  omega_new3 * omega_new3);
+    omega_new1 /= magnitude;
+    omega_new2 /= magnitude;
+    omega_new3 /= magnitude;
+    if (fabs(omega_new3) > 1) {
+      omega_new3 = fmin(1, omega_new3);
+      omega_new3 = fmax(-1, omega_new3);
+    }
+    ang[0] = acos(omega_new3);
+    ang[1] = atan2(omega_new2, omega_new1);
+    if (ang[1] < 0) {
+      ang[1] += 2 * M_PI;
+    }
+    /*
     if (0 <= beta && beta < M_PI / 2) {
       ang[0] -= atan(sin(beta) * tan(alpha));
       ang[1] -= atan(cos(beta) * tan(alpha));
@@ -260,7 +326,7 @@ struct Material {
     } else {
       ang[0] += atan(sin(2 * M_PI - beta) * tan(alpha));
       ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
-    }
+    }*/
     return;
   }
 
@@ -270,6 +336,33 @@ struct Material {
     double u = gsl_rng_uniform(gen);
     double alpha = acos((pow(cos(lb / 2), 2) * (1 - u) - pow(sin(lb / 2), 2)) /
                         (1 - u * pow(cos(lb / 2), 2)));
+    double omega_new1 =
+        sin(ang[0]) * cos(ang[1]) * cos(alpha) +
+        (cos(ang[0]) * cos(ang[1]) * sin(beta) - sin(ang[1]) * cos(beta)) *
+            sin(alpha);
+    double omega_new2 =
+        sin(ang[0]) * sin(ang[1]) * cos(alpha) +
+        (cos(ang[0]) * sin(ang[1]) * sin(beta) + cos(ang[1]) * cos(beta)) *
+            sin(alpha);
+    double omega_new3 =
+        cos(ang[0]) * cos(alpha) - sin(ang[0]) * sin(beta) * sin(alpha);
+
+    double magnitude =
+        std::sqrt(omega_new1 * omega_new1 + omega_new2 * omega_new2 +
+                  omega_new3 * omega_new3);
+    omega_new1 /= magnitude;
+    omega_new2 /= magnitude;
+    omega_new3 /= magnitude;
+    if (fabs(omega_new3) > 1) {
+      omega_new3 = fmin(1, omega_new3);
+      omega_new3 = fmax(-1, omega_new3);
+    }
+    ang[0] = acos(omega_new3);
+    ang[1] = atan2(omega_new2, omega_new1);
+    // if (ang[1]<0){
+    //     ang[1]+=2*M_PI;
+    //   }
+    /*
     if (0 <= beta && beta < M_PI / 2) {
       ang[0] -= atan(sin(beta) * tan(alpha));
       ang[1] -= atan(cos(beta) * tan(alpha));
@@ -280,9 +373,9 @@ struct Material {
       ang[0] += atan(sin(3 * M_PI / 2 - beta) * tan(alpha));
       ang[1] += atan(cos(3 * M_PI / 2 - beta) * tan(alpha));
     } else {
-      ang[0] += atan(sin(2 * M_PI - beta) * tan(alpha));
+      ang[0] += atan(sin(2 s* M_PI - beta) * tan(alpha));
       ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
-    }
+    } */
     return;
   }
 
