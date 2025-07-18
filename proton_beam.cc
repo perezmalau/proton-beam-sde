@@ -259,3 +259,11 @@ struct proton_path {
     }
     return;
   }
+
+  std::vector<double> energy, s;
+  std::vector<std::vector<double>> x, omega;
+  // Dummy vectors for spherical BM
+  std::vector<double> u, z, w;
+};
+
+#endif
