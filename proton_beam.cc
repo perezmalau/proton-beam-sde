@@ -155,6 +155,9 @@ struct proton_path {
     }
     omega[ix][0] = acos(w[2]);
     omega[ix][1] = atan2(w[1], w[0]);
+    // if(omega[ix][1]<0) {
+    //  omega[ix][1]+=2*M_PI;
+    // }
     double v0 = omega[ix - 1][0];
     double v1 = omega[ix][0];
     double w0 = omega[ix - 1][1];
@@ -165,15 +168,15 @@ struct proton_path {
     double denom_xy = (v0 - v1 + w0 - w1) * (v0 - v1 - w0 + w1);
     if (fabs(denom_xy) > 1e-9) {
       x[ix][0] = x[ix - 1][0] -
-                dt *
-                    ((v0 - v1) * (cos(v0) * cos(w0) - cos(v1) * cos(w1)) +
+                 dt *
+                     ((v0 - v1) * (cos(v0) * cos(w0) - cos(v1) * cos(w1)) +
                       (w0 - w1) * (sin(v0) * sin(w0) - sin(v1) * sin(w1))) /
-                    denom_xy;
+                     denom_xy;
       x[ix][1] = x[ix - 1][1] +
-                dt *
-                    ((w0 - w1) * (cos(w0) * sin(v0) - cos(w1) * sin(v1)) -
+                 dt *
+                     ((w0 - w1) * (cos(w0) * sin(v0) - cos(w1) * sin(v1)) -
                       (v0 - v1) * (cos(v0) * sin(w0) - cos(v1) * sin(w1))) /
-                    denom_xy;
+                     denom_xy;
     } else {
       // Linear approximation when denominator is too small
       x[ix][0] = x[ix - 1][0] + dt * sin(v0) * cos(w0);
@@ -187,9 +190,8 @@ struct proton_path {
       x[ix][2] = x[ix - 1][2] - dt * (cos(v0) + cos(v1)) / 2;
     }
     energy[ix] = energy[ix - 1] -
-                 fmax(mat.bethe_bloch(energy[ix - 1]) * dist(x[ix - 1], x[ix]) +
-                          sqrt(dist(x[ix - 1], x[ix])) *
-                              mat.energy_straggling_sd(energy[ix - 1]) *
+                 fmax(mat.bethe_bloch(energy[ix - 1]) * dt +
+                          sqrt(dt) * mat.energy_straggling_sd(energy[ix - 1]) *
                               gsl_ran_gaussian_ziggurat(gen, 1),
                       0);
     energy[ix] = fmax(energy[ix], 0);

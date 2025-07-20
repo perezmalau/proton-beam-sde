@@ -52,7 +52,8 @@ int main(int argc, char **argv) {
                "./Splines/" + name + "_ne_yield.txt",
                "./Splines/" + name + "_el_angle_cdf.txt",
                "./Splines/" + name + "_ne_angle_cdf.txt",
-               "./Splines/" + name + "_ne_energy_cdf.txt");
+               "./Splines/" + name + "_ne_energy_cdf.txt",
+               "./Splines/" + name + "_ne_energyangle_cdf.txt");
       atoms.push_back(tmp);
     }
   }
