@@ -498,7 +498,7 @@ struct CS_3dENDF {
   }
   CS_3dENDF(const CS_3dENDF &other)
       : energy(other.energy), exit_energy(other.exit_energy), cdf(other.cdf),
-        rvalue(other.cdf) {}
+        rvalue(other.rvalue) {}
 
   CS_3dENDF() : energy(), exit_energy(), cdf(), rvalue() {}
 
