@@ -21,13 +21,13 @@ struct AtomConsts {
                           const int AX, const int NX, const int ZX,
                           const double sep) const {
     double temp = 15.68 * (AC - AX) -
-                  (28.07 * ((pow(NC - ZC, 2) / AC) - (pow(NX - ZX, 2) / AX))) -
+                  (28.07 * ((pow(NC - ZC, 2) / static_cast<double>(AC)) - (pow(NX - ZX, 2) / static_cast<double>(AX)))) -
                   (18.56 * (pow(AC, 2.0 / 3.0) - pow(AX, 2.0 / 3.0))) +
                   (33.22 * ((pow(NC - ZC, 2) / pow(AC, 4.0 / 3.0)) -
                             (pow(NX - ZX, 2) / pow(AX, 4.0 / 3.0)))) -
                   (0.717 * ((pow(ZC, 2) / pow(AC, 1.0 / 3.0)) -
                             (pow(ZX, 2) / pow(AX, 1.0 / 3.0)))) +
-                  (1.211 * ((pow(ZC, 2) / AC) - (pow(ZX, 2) / AX))) - sep;
+                  (1.211 * ((pow(ZC, 2) / static_cast<double>(AC)) - (pow(ZX, 2) / static_cast<double>(AX)))) - sep;
     return temp;
   }
   AtomConsts(const int a0, const int z0, const int ia, const int iz,
