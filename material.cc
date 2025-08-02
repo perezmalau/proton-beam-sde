@@ -202,6 +202,29 @@ struct Material {
     return ret;
   }
 
+  void compute_new_angle(std::vector<double> &ang, const double alpha,
+                         const double beta) {
+    double omega_new1 =
+        sin(ang[0]) * cos(ang[1]) * cos(alpha) +
+        (cos(ang[0]) * cos(ang[1]) * sin(beta) - sin(ang[1]) * cos(beta)) *
+            sin(alpha);
+    double omega_new2 =
+        sin(ang[0]) * sin(ang[1]) * cos(alpha) +
+        (cos(ang[0]) * sin(ang[1]) * sin(beta) + cos(ang[1]) * cos(beta)) *
+            sin(alpha);
+    double omega_new3 =
+        cos(ang[0]) * cos(alpha) - sin(ang[0]) * sin(beta) * sin(alpha);
+    double magnitude =
+        std::sqrt(omega_new1 * omega_new1 + omega_new2 * omega_new2 +
+                  omega_new3 * omega_new3);
+    omega_new1 /= magnitude;
+    omega_new2 /= magnitude;
+    omega_new3 /= magnitude;
+    ang[0] = acos(omega_new3);
+    ang[1] = atan2(omega_new2, omega_new1);
+    return;
+  }
+
   void nonelastic_scatter(std::vector<double> &ang, double &e, gsl_rng *gen) {
     double beta = 2 * M_PI * gsl_rng_uniform(gen);
     double rate = 0;
@@ -230,45 +253,7 @@ struct Material {
           at[ind].ne_energy_angle_ENDF.sample(e, gen, at[ind].Constants);
       e = alphatemp[0];
       alpha = acos(alphatemp[1]);
-      double omega_new1 =
-          sin(ang[0]) * cos(ang[1]) * cos(alpha) +
-          (cos(ang[0]) * cos(ang[1]) * sin(beta) - sin(ang[1]) * cos(beta)) *
-              sin(alpha);
-      double omega_new2 =
-          sin(ang[0]) * sin(ang[1]) * cos(alpha) +
-          (cos(ang[0]) * sin(ang[1]) * sin(beta) + cos(ang[1]) * cos(beta)) *
-              sin(alpha);
-      double omega_new3 =
-          cos(ang[0]) * cos(alpha) - sin(ang[0]) * sin(beta) * sin(alpha);
-      double magnitude =
-          std::sqrt(omega_new1 * omega_new1 + omega_new2 * omega_new2 +
-                    omega_new3 * omega_new3);
-      omega_new1 /= magnitude;
-      omega_new2 /= magnitude;
-      omega_new3 /= magnitude;
-      if (fabs(omega_new3) > 1) {
-        omega_new3 = fmin(1, omega_new3);
-        omega_new3 = fmax(-1, omega_new3);
-      }
-      ang[0] = acos(omega_new3);
-      ang[1] = atan2(omega_new2, omega_new1);
-      if (ang[1] < 0) {
-        ang[1] += 2 * M_PI;
-      }
-      /*
-    if (0 <= beta && beta < M_PI / 2) {
-      ang[0] -= atan(sin(beta) * tan(alpha));
-      ang[1] -= atan(cos(beta) * tan(alpha));
-    } else if (M_PI / 2 <= beta && beta < M_PI) {
-      ang[0] -= atan(sin(M_PI - beta) * tan(alpha));
-      ang[1] += atan(cos(M_PI - beta) * tan(alpha));
-    } else if (M_PI <= beta && beta < 3 * M_PI / 2) {
-      ang[0] += atan(sin(3 * M_PI / 2 - beta) * tan(alpha));
-      ang[1] += atan(cos(3 * M_PI / 2 - beta) * tan(alpha));
-    } else {
-      ang[0] += atan(sin(2 * M_PI - beta) * tan(alpha));
-      ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
-    }*/
+      compute_new_angle(ang, alpha, beta);
     }
     return;
   }
@@ -288,45 +273,7 @@ struct Material {
     }
     double alpha = at[ind].el_angle_cdf.sample(e, gen);
     alpha = at[ind].cm_to_lab_frame(alpha, e, 0);
-    double omega_new1 =
-        sin(ang[0]) * cos(ang[1]) * cos(alpha) +
-        (cos(ang[0]) * cos(ang[1]) * sin(beta) - sin(ang[1]) * cos(beta)) *
-            sin(alpha);
-    double omega_new2 =
-        sin(ang[0]) * sin(ang[1]) * cos(alpha) +
-        (cos(ang[0]) * sin(ang[1]) * sin(beta) + cos(ang[1]) * cos(beta)) *
-            sin(alpha);
-    double omega_new3 =
-        cos(ang[0]) * cos(alpha) - sin(ang[0]) * sin(beta) * sin(alpha);
-    double magnitude =
-        std::sqrt(omega_new1 * omega_new1 + omega_new2 * omega_new2 +
-                  omega_new3 * omega_new3);
-    omega_new1 /= magnitude;
-    omega_new2 /= magnitude;
-    omega_new3 /= magnitude;
-    if (fabs(omega_new3) > 1) {
-      omega_new3 = fmin(1, omega_new3);
-      omega_new3 = fmax(-1, omega_new3);
-    }
-    ang[0] = acos(omega_new3);
-    ang[1] = atan2(omega_new2, omega_new1);
-    if (ang[1] < 0) {
-      ang[1] += 2 * M_PI;
-    }
-    /*
-    if (0 <= beta && beta < M_PI / 2) {
-      ang[0] -= atan(sin(beta) * tan(alpha));
-      ang[1] -= atan(cos(beta) * tan(alpha));
-    } else if (M_PI / 2 <= beta && beta < M_PI) {
-      ang[0] -= atan(sin(M_PI - beta) * tan(alpha));
-      ang[1] += atan(cos(M_PI - beta) * tan(alpha));
-    } else if (M_PI <= beta && beta < 3 * M_PI / 2) {
-      ang[0] += atan(sin(3 * M_PI / 2 - beta) * tan(alpha));
-      ang[1] += atan(cos(3 * M_PI / 2 - beta) * tan(alpha));
-    } else {
-      ang[0] += atan(sin(2 * M_PI - beta) * tan(alpha));
-      ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
-    }*/
+    compute_new_angle(ang, alpha, beta);
     return;
   }
 
@@ -336,46 +283,7 @@ struct Material {
     double u = gsl_rng_uniform(gen);
     double alpha = acos((pow(cos(lb / 2), 2) * (1 - u) - pow(sin(lb / 2), 2)) /
                         (1 - u * pow(cos(lb / 2), 2)));
-    double omega_new1 =
-        sin(ang[0]) * cos(ang[1]) * cos(alpha) +
-        (cos(ang[0]) * cos(ang[1]) * sin(beta) - sin(ang[1]) * cos(beta)) *
-            sin(alpha);
-    double omega_new2 =
-        sin(ang[0]) * sin(ang[1]) * cos(alpha) +
-        (cos(ang[0]) * sin(ang[1]) * sin(beta) + cos(ang[1]) * cos(beta)) *
-            sin(alpha);
-    double omega_new3 =
-        cos(ang[0]) * cos(alpha) - sin(ang[0]) * sin(beta) * sin(alpha);
-
-    double magnitude =
-        std::sqrt(omega_new1 * omega_new1 + omega_new2 * omega_new2 +
-                  omega_new3 * omega_new3);
-    omega_new1 /= magnitude;
-    omega_new2 /= magnitude;
-    omega_new3 /= magnitude;
-    if (fabs(omega_new3) > 1) {
-      omega_new3 = fmin(1, omega_new3);
-      omega_new3 = fmax(-1, omega_new3);
-    }
-    ang[0] = acos(omega_new3);
-    ang[1] = atan2(omega_new2, omega_new1);
-    // if (ang[1]<0){
-    //     ang[1]+=2*M_PI;
-    //   }
-    /*
-    if (0 <= beta && beta < M_PI / 2) {
-      ang[0] -= atan(sin(beta) * tan(alpha));
-      ang[1] -= atan(cos(beta) * tan(alpha));
-    } else if (M_PI / 2 <= beta && beta < M_PI) {
-      ang[0] -= atan(sin(M_PI - beta) * tan(alpha));
-      ang[1] += atan(cos(M_PI - beta) * tan(alpha));
-    } else if (M_PI <= beta && beta < 3 * M_PI / 2) {
-      ang[0] += atan(sin(3 * M_PI / 2 - beta) * tan(alpha));
-      ang[1] += atan(cos(3 * M_PI / 2 - beta) * tan(alpha));
-    } else {
-      ang[0] += atan(sin(2 s* M_PI - beta) * tan(alpha));
-      ang[1] -= atan(cos(2 * M_PI - beta) * tan(alpha));
-    } */
+    compute_new_angle(ang, alpha, beta);
     return;
   }
 
