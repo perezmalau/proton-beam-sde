@@ -217,16 +217,12 @@ struct proton_path {
       if (energy[ix - 1] > absorption_energy) {
         nonelastic_jump_rate =
             materials[material_index].nonelastic_rate(energy[ix - 1]);
-        rutherford_min_scatter =
-            2 * materials[material_index].multiple_scattering_sd(energy[ix - 1],
-                                                                 dt);
         elastic_jump_rate =
             materials[material_index].elastic_rate(energy[ix - 1]);
-        rutherford_jump_rate = 0;
-        if (rutherford_min_scatter < M_PI) {
-          rutherford_jump_rate = materials[material_index].rutherford_rate(
-              energy[ix - 1], rutherford_min_scatter);
-        }
+        // Minimum threshold of 0.2 radians for single-scattering from Geant4
+        rutherford_min_scatter = 0.2;
+        rutherford_jump_rate = materials[material_index].rutherford_rate(
+            energy[ix - 1], rutherford_min_scatter);
         alpha = elastic_jump_rate + nonelastic_jump_rate + rutherford_jump_rate;
         if (gsl_rng_uniform(gen) < 1 - exp(-alpha * dt)) {
           u = gsl_rng_uniform(gen);
