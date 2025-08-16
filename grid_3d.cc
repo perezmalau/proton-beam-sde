@@ -168,10 +168,17 @@ struct Grid_3d {
     int ix;
     unsigned int iy, iz;
     std::vector<double> tmp(1, 0);
+    std::vector<std::vector<double>> tmp2(1, tmp);
     for (int i = 0; i < len; i++) {
       ix = floor(y[i][0] / dx);
       iy = floor(fabs(y[i][1]) / dx);
       iz = floor(fabs(y[i][2]) / dx);
+      if (ix >= int(x_pp.size())) {
+        x_pp.resize(ix + 1, tmp2);
+        x_pm.resize(ix + 1, tmp2);
+        x_mp.resize(ix + 1, tmp2);
+        x_mm.resize(ix + 1, tmp2);
+      }
       if (ix >= 0 && ix < int(x_pp.size())) {
         if (y[i][1] >= 0 && y[i][2] >= 0) {
           if (iy >= x_pp[ix].size()) {

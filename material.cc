@@ -222,9 +222,6 @@ struct Material {
       // proton absorbed & track ends
       e = 0;
     } else {
-      // alpha = at[ind].ne_angle_cdf.sample(e, gen);
-      // e = at[ind].ne_energy_cdf.sample(e, alpha, gen);
-      // alpha = at[ind].cm_to_lab_frame(alpha, e_old, e_old - e);
       // ENDF non-elastic scattering, both energy + angle from CM to LAB
       alphatemp =
           at[ind].ne_energy_angle_ENDF.sample(e, gen, at[ind].Constants);
@@ -252,15 +249,6 @@ struct Material {
     double alpha;
     alpha = at[ind].el_ruth_angle_cdf.sample(e, gen);
     compute_new_angle(ang, alpha, beta);
-    return;
-  }
-
-  void print() const {
-    std::cout << "density = " << density << std::endl;
-    std::cout << "I = " << I << std::endl;
-    for (unsigned int i = 0; i < at.size(); i++) {
-      std::cout << x[i] << " " << at[i].z << " " << at[i].a << std::endl;
-    }
     return;
   }
 

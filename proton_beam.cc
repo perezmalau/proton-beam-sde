@@ -12,10 +12,17 @@
 
 struct proton_path {
 
-  proton_path(const double e0, const std::vector<double> x0,
-              const std::vector<double> w0, const int n)
-      : energy(n, e0), s(n, 0), x(n, x0), omega(n, w0), u(3, 0), z(3, 0),
-        w(3, 0) {}
+  proton_path(const double e0, const double dt, const double air_gap,
+              const double absorption_e, std::vector<Material> &materials)
+      : energy(1), s(1), x(1), omega(1), u(3, 0), z(3, 0), w(3, 0) {
+    int n = solve_track_length(e0, dt, air_gap, absorption_e, materials);
+    std::vector<double> tmp_x(3, 0);
+    std::vector<double> tmp_w(2, 0);
+    energy.resize(n, 0);
+    s.resize(n, 0);
+    x.resize(n, tmp_x);
+    omega.resize(n, tmp_w);
+  }
 
   void reset(const double e0, const std::vector<double> x0,
              const std::vector<double> w0) {
@@ -24,6 +31,25 @@ struct proton_path {
     energy[0] = e0;
     s[0] = 0;
     return;
+  }
+
+  int solve_track_length(const double e0, const double dt, const double air_gap,
+                         const double absorption_e,
+                         std::vector<Material> &materials) {
+    double e = e0;
+    double x = 0;
+    int n = 1;
+    int material_index = 0;
+    int crossed = 0;
+    while (e > absorption_e) {
+      if (crossed == 0 && x >= air_gap) {
+        material_index++;
+        crossed = 1;
+      }
+      e -= materials[material_index].bethe_bloch(e) * dt;
+      n++;
+    }
+    return n;
   }
 
   double log_a(const int k, const int m, const double theta) const {
@@ -105,22 +131,13 @@ struct proton_path {
     return y;
   }
 
-  double dist(const std::vector<double> &y, const std::vector<double> &z) {
-    double ret = 0;
-    for (unsigned int i = 0; i < y.size(); i++) {
-      ret += (z[i] - y[i]) * (z[i] - y[i]);
-    }
-    return sqrt(ret);
-  }
-  void spherical_bm(const double time_increment, int &ix, gsl_rng *gen,
+  void spherical_bm(const double dt, int &ix, gsl_rng *gen,
                     const Material &mat) {
     z[0] = sin(omega[ix - 1][0]) * cos(omega[ix - 1][1]);
     z[1] = sin(omega[ix - 1][0]) * sin(omega[ix - 1][1]);
     z[2] = cos(omega[ix - 1][0]);
     double y = wright_fisher(
-        pow(mat.multiple_scattering_sd(energy[ix - 1], time_increment), 2),
-        gen);
-
+        pow(mat.multiple_scattering_sd(energy[ix - 1], dt), 2), gen);
     double theta = 2 * M_PI * gsl_rng_uniform(gen);
     // Set up defaults for when z is near (0, 0, 1)
     u[0] = 1;
@@ -155,14 +172,10 @@ struct proton_path {
     }
     omega[ix][0] = acos(w[2]);
     omega[ix][1] = atan2(w[1], w[0]);
-    // if(omega[ix][1]<0) {
-    //  omega[ix][1]+=2*M_PI;
-    // }
     double v0 = omega[ix - 1][0];
     double v1 = omega[ix][0];
     double w0 = omega[ix - 1][1];
     double w1 = omega[ix][1];
-    double dt = time_increment;
 
     // Check for division by zero in x and y position updates
     double denom_xy = (v0 - v1 + w0 - w1) * (v0 - v1 - w0 + w1);
@@ -182,7 +195,6 @@ struct proton_path {
       x[ix][0] = x[ix - 1][0] + dt * sin(v0) * cos(w0);
       x[ix][1] = x[ix - 1][1] + dt * sin(v0) * sin(w0);
     }
-
     // Z position update
     if (fabs(v0 - v1) > 1e-9) {
       x[ix][2] = x[ix - 1][2] + (sin(v0) - sin(v1)) * dt / (v0 - v1);
@@ -216,8 +228,6 @@ struct proton_path {
       if (energy[ix - 1] > absorption_energy) {
         nonelastic_jump_rate =
             materials[material_index].nonelastic_rate(energy[ix - 1]);
-        // 2 * materials[material_index].multiple_scattering_sd(energy[ix - 1],
-        //        dt);
 
         rutherford_elastic_jump_rate =
             materials[material_index].rutherford_and_elastic_rate(

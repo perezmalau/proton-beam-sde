@@ -15,6 +15,7 @@
 // defining here instead of materials as
 // appears in ENDF cross section struct as input to member function
 struct AtomConsts {
+
   const int a, z;
   const double Mi, Mo, ANU, BNU, iNU, oNU, Si, So;
   double AngleScatterCoef(const int AC, const int NC, const int ZC,
@@ -53,6 +54,7 @@ struct AtomConsts {
         So(other.So) {}
   AtomConsts() : a(), z(), Mi(), Mo(), ANU(), BNU(), iNU(), oNU(), Si(), So() {}
 };
+
 struct CS_1d {
 
   CS_1d(const std::string filename) : energy(), rate() {
@@ -79,31 +81,17 @@ struct CS_1d {
 
   CS_1d() : energy(), rate() {}
 
-  void print() const {
-    for (unsigned int i = 0; i < energy.size(); i++) {
-      std::cout << energy[i] << " ";
-    }
-    std::cout << std::endl;
-    for (unsigned int i = 0; i < rate.size(); i++) {
-      std::cout << rate[i] << " ";
-    }
-    std::cout << std::endl;
-    return;
-  }
-
   double evaluate(const double e) const {
-    int r;
     double ret = 0;
+    int r;
     if (energy.size() > 0) {
       if (e <= energy[0]) {
         ret = rate[0];
       } else if (e >= energy.back()) {
         ret = rate.back();
       } else {
-        r = 1;
-        while (e > energy[r]) {
-          r++;
-        }
+        r = std::distance(energy.begin(),
+                          std::lower_bound(energy.begin(), energy.end(), e));
         ret = ((energy[r] - e) * rate[r - 1] + (e - energy[r - 1]) * rate[r]) /
               (energy[r] - energy[r - 1]);
       }
@@ -276,53 +264,71 @@ struct CS_2d {
     }
     file.close();
   }
+
   CS_2d(const CS_2d &other)
       : energy(other.energy), exit_angle(other.exit_angle), cdf(other.cdf) {}
 
   CS_2d() : energy(), exit_angle(), cdf() {}
 
-  int find_energy_index(const double e) const {
-    int ret = 0;
-    while (ret < int(energy.size()) && e > energy[ret]) {
-      ret++;
-    }
-    return ret;
-  }
   double sample(const double e, gsl_rng *gen) const {
-    int enindex = find_energy_index(e);
-    int densindex = 0;
-    double densrng = gsl_rng_uniform(gen);
-    if (enindex == 0) {
-      while (cdf[enindex][densindex] < densrng) {
-        densindex++;
-      }
-    } else {
-      double densrng2 = gsl_rng_uniform(gen);
-      double difcheck =
-          (e - energy[enindex - 1]) / (energy[enindex] - energy[enindex - 1]);
-      if (densrng2 < difcheck) {
-        while (cdf[enindex][densindex] < densrng) {
-          densindex++;
-        }
+    int energy_index = std::distance(
+        energy.begin(), std::lower_bound(energy.begin(), energy.end(), e));
+    double u = gsl_rng_uniform(gen);
+    int density_index;
+    double out_angle_cm;
+    double out_angle_cm_2;
+    double diff;
+    if (energy_index == 0 || energy_index == int(energy.size())) {
+      energy_index = std::min(energy_index, int(energy.size()) - 1);
+      density_index =
+          std::distance(cdf[energy_index].begin(),
+                        std::lower_bound(cdf[energy_index].begin(),
+                                         cdf[energy_index].end(), u));
+      if (density_index == 0 ||
+          density_index == int(cdf[energy_index].size())) {
+        density_index =
+            std::min(density_index, int(cdf[energy_index].size()) - 1);
+        out_angle_cm = exit_angle[energy_index][density_index];
       } else {
-        enindex--;
-        while (cdf[enindex][densindex] < densrng) {
-          densindex++;
-        }
+        diff = (u - cdf[energy_index][density_index - 1]) /
+               (cdf[energy_index][density_index] -
+                cdf[energy_index][density_index - 1]);
+        out_angle_cm = exit_angle[energy_index][density_index] * diff +
+                       exit_angle[energy_index][density_index - 1] * (1 - diff);
+      }
+    } else {
+      density_index =
+          std::distance(cdf[energy_index].begin(),
+                        std::lower_bound(cdf[energy_index].begin(),
+                                         cdf[energy_index].end(), u));
+      if (density_index == 0 ||
+          density_index == int(cdf[energy_index].size())) {
+        density_index =
+            std::min(density_index, int(cdf[energy_index].size()) - 1);
+        diff = (e - energy[energy_index - 1]) /
+               (energy[energy_index] - energy[energy_index - 1]);
+        out_angle_cm = exit_angle[energy_index][density_index] * diff +
+                       exit_angle[energy_index - 1][density_index] * (1 - diff);
+      } else {
+        diff = (u - cdf[energy_index][density_index - 1]) /
+               (cdf[energy_index][density_index] -
+                cdf[energy_index][density_index - 1]);
+        out_angle_cm = exit_angle[energy_index][density_index] * diff +
+                       exit_angle[energy_index][density_index - 1] * (1 - diff);
+
+        diff = (u - cdf[energy_index - 1][density_index - 1]) /
+               (cdf[energy_index - 1][density_index] -
+                cdf[energy_index - 1][density_index - 1]);
+        out_angle_cm_2 =
+            exit_angle[energy_index - 1][density_index] * diff +
+            exit_angle[energy_index - 1][density_index - 1] * (1 - diff);
+
+        diff = (e - energy[energy_index - 1]) /
+               (energy[energy_index] - energy[energy_index - 1]);
+        out_angle_cm = out_angle_cm * diff + out_angle_cm_2 * (1 - diff);
       }
     }
-    double outanglecm;
-    if (densindex == 0) {
-      outanglecm = exit_angle[enindex][densindex];
-    } else {
-      double difference =
-          (densrng - cdf[enindex][densindex - 1]) /
-          (cdf[enindex][densindex] - cdf[enindex][densindex - 1]);
-      outanglecm = difference * exit_angle[enindex][densindex] +
-                   (1 - difference) * exit_angle[enindex][densindex - 1];
-    }
-
-    return outanglecm;
+    return out_angle_cm;
   }
 
   std::vector<double> energy;

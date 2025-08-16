@@ -57,8 +57,13 @@ struct Grid_2d {
                     const std::vector<double> &s, const int len) {
     int ix;
     unsigned int iy;
+    std::vector<double> tmp(1, 0);
     for (int i = 0; i < len; i++) {
       ix = floor(y[i][0] / dx);
+      if (ix >= int(x_pos.size())) {
+        x_pos.resize(ix + 1, tmp);
+        x_neg.resize(ix + 1, tmp);
+      }
       iy = floor(fabs(y[i][1]) / dx);
       if (ix >= 0 && y[i][2] >= 0 && y[i][2] < dx) {
         if (y[i][1] >= 0) {
@@ -81,8 +86,13 @@ struct Grid_2d {
            const std::vector<double> &s, const int len) {
     int ix;
     unsigned int iy;
+    std::vector<double> tmp(1, 0);
     for (int i = 0; i < len; i++) {
       ix = floor(y[i][0] / dx);
+      if (ix >= int(x_pos.size())) {
+        x_pos.resize(ix + 1, tmp);
+        x_neg.resize(ix + 1, tmp);
+      }
       iy = floor(fabs(y[i][1]) / dx);
       if (ix >= 0) {
         if (y[i][1] >= 0) {

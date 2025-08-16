@@ -11,14 +11,6 @@
 #include <string>
 #include <vector>
 
-int solve_track_length(const double e0, const double dt,
-                       const double absorption_e) {
-  double p = 1.77;
-  double a = 2.2 * 1e-3; // cm / MeV
-  double t = a * (pow(e0, p) - pow(absorption_e, p));
-  return ceil(t / dt);
-}
-
 int main(int argc, char **argv) {
   if (argc != 2) {
     std::cout << "Call " << argv[0] << " config-path" << std::endl;
@@ -77,15 +69,10 @@ int main(int argc, char **argv) {
   cfg.readFile(argv[1]);
   cfg.lookupValue("nozzle_radius", nozzle_radius);
   cfg.lookupValue("initial_x_sd", initial_x_sd);
-  do {
-    x[1] = gsl_ran_gaussian_ziggurat(gen, initial_x_sd);
-    x[2] = gsl_ran_gaussian_ziggurat(gen, initial_x_sd);
-  } while (x[1] * x[1] + x[2] * x[2] > nozzle_radius * nozzle_radius);
 
   double initial_e_mean, initial_e_sd;
   cfg.lookupValue("initial_e_mean", initial_e_mean);
   cfg.lookupValue("initial_e_sd", initial_e_sd);
-  e0 = initial_e_mean + gsl_ran_gaussian_ziggurat(gen, initial_e_sd);
 
   double dt, absorption_e, air_gap;
   int nrep;
@@ -116,24 +103,22 @@ int main(int argc, char **argv) {
     cfg.lookupValue("out_path_2d_slice", path_slice);
   }
 
-  int n =
-      solve_track_length(initial_e_mean + 3 * initial_e_sd, dt, absorption_e);
-  // Extra 100 slots in case of energy straggling
-  int extra = 100;
-  proton_path p(e0, x, w, n + extra);
-  // We need all grids to be initialised for code to compile,
+  proton_path p(initial_e_mean + 3 * initial_e_sd, dt, air_gap, absorption_e,
+                materials);
+  int n = p.energy.size();
+  // We need all grids to be initialised for code to compile
   // but make unneeded ones tiny
-  int tmp = (n + extra) * grid_dx / dt;
+  int tmp = n * grid_dx / dt;
   if (output_1d == 0 && output_2d == 0) {
     tmp = 1;
   }
   Grid_2d g2d(tmp, grid_dx);
-  tmp = (n + extra) * grid_dx / dt;
+  tmp = n * grid_dx / dt;
   if (output_3d == 0) {
     tmp = 1;
   }
   Grid_3d g3d(tmp, grid_dx);
-  tmp = (n + extra) * grid_dx / dt;
+  tmp = n * grid_dx / dt;
   if (output_2d_slice == 0) {
     tmp = 1;
   }
@@ -141,6 +126,12 @@ int main(int argc, char **argv) {
 
   int len;
   for (int i = 0; i < nrep; i++) {
+    e0 = initial_e_mean + gsl_ran_gaussian_ziggurat(gen, initial_e_sd);
+    do {
+      x[1] = gsl_ran_gaussian_ziggurat(gen, initial_x_sd);
+      x[2] = gsl_ran_gaussian_ziggurat(gen, initial_x_sd);
+    } while (x[1] * x[1] + x[2] * x[2] > nozzle_radius * nozzle_radius);
+    p.reset(e0, x, w);
     len = p.simulate(dt, absorption_e, air_gap, gen, materials);
     if (output_1d == 1 || output_2d == 1) {
       g2d.add(p.x, p.s, len);
@@ -151,12 +142,6 @@ int main(int argc, char **argv) {
     if (output_2d_slice == 1) {
       g2d_slice.add_to_slice(p.x, p.s, len);
     }
-    e0 = initial_e_mean + gsl_ran_gaussian_ziggurat(gen, initial_e_sd);
-    do {
-      x[1] = gsl_ran_gaussian_ziggurat(gen, initial_x_sd);
-      x[2] = gsl_ran_gaussian_ziggurat(gen, initial_x_sd);
-    } while (x[1] * x[1] + x[2] * x[2] > nozzle_radius * nozzle_radius);
-    p.reset(e0, x, w);
   }
   if (output_1d == 1) {
     g2d.print_1d(path_1d);
