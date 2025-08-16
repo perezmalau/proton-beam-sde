@@ -41,7 +41,6 @@ int main(int argc, char **argv) {
     } else {
       Atom tmp(a, z, "./Splines/" + name + "_el_ruth_rate.txt",
                "./Splines/" + name + "_ne_rate.txt",
-               "./Splines/" + name + "_ne_yield.txt",
                "./Splines/" + name + "_el_ruth_angle.txt",
                "./Splines/" + name + "_ne_energyangle_cdf.txt");
       atoms.push_back(tmp);

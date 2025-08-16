@@ -4,45 +4,29 @@
 
 #ifndef MAT
 #define MAT
+
 struct Atom {
   Atom(const int a0, const int z0, const std::string el_ruth_r,
-       const std::string ne_r, const std::string ne_y,
-       const std::string el_ruth_a, const std::string ne_ea)
-      : a(a0), z(z0), el_ruth_rate(el_ruth_r), ne_rate(ne_r), ne_yield(ne_y),
+       const std::string ne_r, const std::string el_ruth_a,
+       const std::string ne_ea)
+      : a(a0), z(z0), el_ruth_rate(el_ruth_r), ne_rate(ne_r),
         el_ruth_angle_cdf(el_ruth_a), ne_energy_angle_ENDF(ne_ea),
         Constants(a0, z0, 1, 1, 1, 1, 1, 1, 0, 0) {}
 
   // Constructor for zero non-elastic rate for hydrogen
   Atom(const int a0, const int z0, const std::string el_ruth_r,
        const std::string el_ruth_a)
-      : a(a0), z(z0), el_ruth_rate(el_ruth_r), ne_rate(), ne_yield(),
+      : a(a0), z(z0), el_ruth_rate(el_ruth_r), ne_rate(),
         el_ruth_angle_cdf(el_ruth_a), ne_energy_angle_ENDF(), Constants() {}
 
   Atom(const Atom &other)
       : a(other.a), z(other.z), el_ruth_rate(other.el_ruth_rate),
-        ne_rate(other.ne_rate), ne_yield(other.ne_yield),
-        el_ruth_angle_cdf(other.el_ruth_angle_cdf),
+        ne_rate(other.ne_rate), el_ruth_angle_cdf(other.el_ruth_angle_cdf),
         ne_energy_angle_ENDF(other.ne_energy_angle_ENDF),
         Constants(other.Constants) {}
 
-  double cm_to_lab_frame(const double ang, const double e0,
-                         const double e_delta) const {
-    double mp = 938.346; // mass of proton * c^2, MeV
-    double mn = mp * a;  // mass of colliding nucleus * c^2, MeV
-    double u = sqrt(e0 * (e0 + mp)) / (e0 + mp + mn);
-    double g = 1 / sqrt(1 - u * u);
-    double p = sqrt((e0 - e_delta) * (e0 - e_delta + 2 * mp));
-    double e = e0 - e_delta + mp;
-    double v_ratio = u * (e - u * p) / (p - u * e);
-    double out = atan(sin(ang) / (g * (cos(ang) + v_ratio)));
-    if (out < 0) {
-      out += M_PI;
-    }
-    return out;
-  }
-
   const int a, z;
-  CS_1d el_ruth_rate, ne_rate, ne_yield;
+  CS_1d el_ruth_rate, ne_rate;
   CS_2d el_ruth_angle_cdf;
   CS_3d ne_energy_angle_ENDF;
   AtomConsts Constants;
@@ -216,19 +200,11 @@ struct Material {
       tmp += at[ind].a * x[ind] * at[ind].ne_rate.evaluate(e) / rate;
     }
     std::vector<double> alphatemp;
-    double alpha;
-    // double e_old = e;
-    if (gsl_rng_uniform(gen) > at[ind].ne_yield.evaluate(e)) {
-      // proton absorbed & track ends
-      e = 0;
-    } else {
-      // ENDF non-elastic scattering, both energy + angle from CM to LAB
-      alphatemp =
-          at[ind].ne_energy_angle_ENDF.sample(e, gen, at[ind].Constants);
-      e = alphatemp[0];
-      alpha = acos(alphatemp[1]);
-      compute_new_angle(ang, alpha, beta);
-    }
+    // ENDF non-elastic scattering, both energy + angle from CM to LAB
+    alphatemp = at[ind].ne_energy_angle_ENDF.sample(e, gen, at[ind].Constants);
+    e = alphatemp[0];
+    double alpha = acos(alphatemp[1]);
+    compute_new_angle(ang, alpha, beta);
     return;
   }
 
