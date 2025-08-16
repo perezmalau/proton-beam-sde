@@ -142,90 +142,85 @@ struct CS_3d {
     }
     file.close();
   }
+
   CS_3d(const CS_3d &other)
       : energy(other.energy), exit_energy(other.exit_energy), cdf(other.cdf),
         rvalue(other.rvalue) {}
 
   CS_3d() : energy(), exit_energy(), cdf(), rvalue() {}
 
-  int find_energy_index(const double e) const {
-    int ret = 0;
-    while (ret < int(energy.size()) && e > energy[ret]) {
-      ret++;
+  void sample_from_energy_index(const double energy_index, const double u,
+                                double &out_energy_cm,
+                                double &out_rvalue) const {
+    double diff = 0;
+    int density_index =
+        std::distance(cdf[energy_index].begin(),
+                      std::lower_bound(cdf[energy_index].begin(),
+                                       cdf[energy_index].end(), u));
+    if (density_index == 0 || density_index == int(cdf[energy_index].size())) {
+      density_index =
+          std::min(density_index, int(cdf[energy_index].size()) - 1);
+      out_energy_cm = exit_energy[energy_index][density_index];
+      out_rvalue = rvalue[energy_index][density_index];
+    } else {
+      diff = (u - cdf[energy_index][density_index - 1]) /
+             (cdf[energy_index][density_index] -
+              cdf[energy_index][density_index - 1]);
+      out_energy_cm = exit_energy[energy_index][density_index] * diff +
+                      exit_energy[energy_index][density_index - 1] * (1 - diff);
+      out_rvalue = rvalue[energy_index][density_index] * diff +
+                   rvalue[energy_index][density_index - 1] * (1 - diff);
     }
-    return ret;
+    return;
   }
-  std::vector<double> sample(const double e, gsl_rng *gen,
-                             AtomConsts &coef) const {
-    int enindex = find_energy_index(e);
-    int densindex = 0;
-    double densrng = gsl_rng_uniform(gen);
-    if (enindex == 0) {
-      while (cdf[enindex][densindex] < densrng) {
-        densindex++;
-      }
-    } else {
-      double densrng2 = gsl_rng_uniform(gen);
-      double difcheck =
-          (e - energy[enindex - 1]) / (energy[enindex] - energy[enindex - 1]);
-      if (densrng2 < difcheck) {
-        while (cdf[enindex][densindex] < densrng) {
-          densindex++;
-        }
-      } else {
-        enindex--;
-        while (cdf[enindex][densindex] < densrng) {
-          densindex++;
-        }
-      }
-    }
-    double outenergycm;
-    double outrvalue;
-    if (densindex == 0) {
-      outenergycm = exit_energy[enindex][densindex];
-      outrvalue = rvalue[enindex][densindex];
-    } else {
-      double difference =
-          (densrng - cdf[enindex][densindex - 1]) /
-          (cdf[enindex][densindex] - cdf[enindex][densindex - 1]);
-      outenergycm = difference * exit_energy[enindex][densindex] +
-                    (1 - difference) * exit_energy[enindex][densindex];
-      outrvalue = difference * rvalue[enindex][densindex] +
-                  (1 - difference) * rvalue[enindex][densindex];
-    }
 
+  void sample(double &e, gsl_rng *gen, AtomConsts &coef, double &alpha) const {
+    int energy_index = std::distance(
+        energy.begin(), std::lower_bound(energy.begin(), energy.end(), e));
+    double u = gsl_rng_uniform(gen);
+    double out_energy_cm;
+    double out_energy_cm_2;
+    double out_rvalue;
+    double out_rvalue_2;
+    double diff;
+    if (energy_index == 0 || energy_index == int(energy.size())) {
+      energy_index = std::min(energy_index, int(energy.size()) - 1);
+      sample_from_energy_index(energy_index, u, out_energy_cm, out_rvalue);
+    } else {
+      sample_from_energy_index(energy_index, u, out_energy_cm, out_rvalue);
+      sample_from_energy_index(energy_index, u, out_energy_cm_2, out_rvalue_2);
+      diff = (e - energy[energy_index - 1]) /
+             (energy[energy_index] - energy[energy_index - 1]);
+      out_energy_cm = out_energy_cm * diff + out_energy_cm_2 * (1 - diff);
+      out_rvalue = out_rvalue * diff + out_rvalue_2 * (1 - diff);
+    }
     double ea = e * (coef.ANU / (coef.ANU + coef.iNU));
-    double eb = outenergycm * ((coef.BNU + coef.oNU) / (coef.BNU));
+    double eb = out_energy_cm * ((coef.BNU + coef.oNU) / (coef.BNU));
     double Ea = ea + coef.Si;
     double Eb = eb + coef.So;
     double X1 = fmin(Ea, 130) * Eb / Ea;
     double X3 = fmin(Ea, 41) * Eb / Ea;
     double aval = (0.04 * X1) + (1.8 * 1e-6 * pow(X1, 3)) +
                   (6.7 * 1e-7 * coef.Mi * coef.Mo * pow(X3, 4));
-    double cdfc2 = outrvalue * cosh(aval) - sinh(aval);
+    double cdfc2 = out_rvalue * cosh(aval) - sinh(aval);
     double cdfc1 = 2 * sinh(aval);
     double u2 = gsl_rng_uniform(gen);
     double z = cdfc1 * u2 + cdfc2;
-    double z2 = (z + pow(pow(z, 2) - pow(outrvalue, 2) + 1, 1.0 / 2.0)) /
-                (outrvalue + 1);
-    double outanglecm = log(z2) / aval;
-    outanglecm = fmax(outanglecm, -1);
-    outanglecm = fmin(outanglecm, 1);
-    double outenergylab =
-        outenergycm + (e * coef.iNU * coef.oNU / pow(coef.ANU + coef.iNU, 2)) +
-        ((2 * pow(coef.iNU * coef.oNU * outenergycm * e, 1.0 / 2.0) *
-          outanglecm) /
-         (coef.ANU + coef.iNU));
-    double outanglelab =
-        (pow(outenergycm / outenergylab, 1.0 / 2.0) * outanglecm) +
-        (pow(coef.iNU * coef.oNU * e / outenergylab, 1.0 / 2.0) /
-         (coef.ANU + coef.iNU));
-    if (fabs(outanglelab) > 1) {
-      outanglelab = fmin(1, outanglelab);
-      outanglelab = fmax(-1, outanglelab);
-    }
-    std::vector<double> returnarray = {outenergylab, outanglelab};
-    return returnarray;
+    double z2 = (z + pow(pow(z, 2) - pow(out_rvalue, 2) + 1, 1.0 / 2.0)) /
+                (out_rvalue + 1);
+    double out_angle_cm = log(z2) / aval;
+    double out_energy_lab =
+        out_energy_cm +
+        e * coef.iNU * coef.oNU / pow(coef.ANU + coef.iNU, 2) +
+        2 * sqrt(coef.iNU * coef.oNU * out_energy_cm * e) *
+          out_angle_cm / (coef.ANU + coef.iNU);
+    double out_angle_lab =
+        sqrt(out_energy_cm / out_energy_lab) * out_angle_cm +
+        sqrt(coef.iNU * coef.oNU * e / out_energy_lab) /
+         (coef.ANU + coef.iNU);
+    e = out_energy_lab;
+    alpha = out_angle_lab;
+    return;
   }
 
   std::vector<double> energy;
@@ -270,63 +265,44 @@ struct CS_2d {
 
   CS_2d() : energy(), exit_angle(), cdf() {}
 
+  double sample_from_energy_index(const double energy_index,
+                                  const double u) const {
+    double ret = 0;
+    double diff = 0;
+    int density_index =
+        std::distance(cdf[energy_index].begin(),
+                      std::lower_bound(cdf[energy_index].begin(),
+                                       cdf[energy_index].end(), u));
+    if (density_index == 0 || density_index == int(cdf[energy_index].size())) {
+      density_index =
+          std::min(density_index, int(cdf[energy_index].size()) - 1);
+      ret = exit_angle[energy_index][density_index];
+    } else {
+      diff = (u - cdf[energy_index][density_index - 1]) /
+             (cdf[energy_index][density_index] -
+              cdf[energy_index][density_index - 1]);
+      ret = exit_angle[energy_index][density_index] * diff +
+            exit_angle[energy_index][density_index - 1] * (1 - diff);
+    }
+    return ret;
+  }
+
   double sample(const double e, gsl_rng *gen) const {
     int energy_index = std::distance(
         energy.begin(), std::lower_bound(energy.begin(), energy.end(), e));
     double u = gsl_rng_uniform(gen);
-    int density_index;
     double out_angle_cm;
     double out_angle_cm_2;
     double diff;
     if (energy_index == 0 || energy_index == int(energy.size())) {
       energy_index = std::min(energy_index, int(energy.size()) - 1);
-      density_index =
-          std::distance(cdf[energy_index].begin(),
-                        std::lower_bound(cdf[energy_index].begin(),
-                                         cdf[energy_index].end(), u));
-      if (density_index == 0 ||
-          density_index == int(cdf[energy_index].size())) {
-        density_index =
-            std::min(density_index, int(cdf[energy_index].size()) - 1);
-        out_angle_cm = exit_angle[energy_index][density_index];
-      } else {
-        diff = (u - cdf[energy_index][density_index - 1]) /
-               (cdf[energy_index][density_index] -
-                cdf[energy_index][density_index - 1]);
-        out_angle_cm = exit_angle[energy_index][density_index] * diff +
-                       exit_angle[energy_index][density_index - 1] * (1 - diff);
-      }
+      out_angle_cm = sample_from_energy_index(energy_index, u);
     } else {
-      density_index =
-          std::distance(cdf[energy_index].begin(),
-                        std::lower_bound(cdf[energy_index].begin(),
-                                         cdf[energy_index].end(), u));
-      if (density_index == 0 ||
-          density_index == int(cdf[energy_index].size())) {
-        density_index =
-            std::min(density_index, int(cdf[energy_index].size()) - 1);
-        diff = (e - energy[energy_index - 1]) /
-               (energy[energy_index] - energy[energy_index - 1]);
-        out_angle_cm = exit_angle[energy_index][density_index] * diff +
-                       exit_angle[energy_index - 1][density_index] * (1 - diff);
-      } else {
-        diff = (u - cdf[energy_index][density_index - 1]) /
-               (cdf[energy_index][density_index] -
-                cdf[energy_index][density_index - 1]);
-        out_angle_cm = exit_angle[energy_index][density_index] * diff +
-                       exit_angle[energy_index][density_index - 1] * (1 - diff);
-
-        diff = (u - cdf[energy_index - 1][density_index - 1]) /
-               (cdf[energy_index - 1][density_index] -
-                cdf[energy_index - 1][density_index - 1]);
-        out_angle_cm_2 =
-            exit_angle[energy_index - 1][density_index] * diff +
-            exit_angle[energy_index - 1][density_index - 1] * (1 - diff);
-
-        diff = (e - energy[energy_index - 1]) /
-               (energy[energy_index] - energy[energy_index - 1]);
-        out_angle_cm = out_angle_cm * diff + out_angle_cm_2 * (1 - diff);
-      }
+      out_angle_cm = sample_from_energy_index(energy_index, u);
+      out_angle_cm_2 = sample_from_energy_index(energy_index - 1, u);
+      diff = (e - energy[energy_index - 1]) /
+             (energy[energy_index] - energy[energy_index - 1]);
+      out_angle_cm = out_angle_cm * diff + out_angle_cm_2 * (1 - diff);
     }
     return out_angle_cm;
   }

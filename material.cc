@@ -199,11 +199,10 @@ struct Material {
       ind++;
       tmp += at[ind].a * x[ind] * at[ind].ne_rate.evaluate(e) / rate;
     }
-    std::vector<double> alphatemp;
+    double alpha;
     // ENDF non-elastic scattering, both energy + angle from CM to LAB
-    alphatemp = at[ind].ne_energy_angle_ENDF.sample(e, gen, at[ind].Constants);
-    e = alphatemp[0];
-    double alpha = acos(alphatemp[1]);
+    at[ind].ne_energy_angle_ENDF.sample(e, gen, at[ind].Constants, alpha);
+    alpha = acos(alpha);
     compute_new_angle(ang, alpha, beta);
     return;
   }
