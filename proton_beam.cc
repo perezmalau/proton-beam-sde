@@ -112,7 +112,6 @@ struct proton_path {
     }
     return sqrt(ret);
   }
-
   void spherical_bm(const double time_increment, int &ix, gsl_rng *gen,
                     const Material &mat) {
     z[0] = sin(omega[ix - 1][0]) * cos(omega[ix - 1][1]);
@@ -121,6 +120,7 @@ struct proton_path {
     double y = wright_fisher(
         pow(mat.multiple_scattering_sd(energy[ix - 1], time_increment), 2),
         gen);
+
     double theta = 2 * M_PI * gsl_rng_uniform(gen);
     // Set up defaults for when z is near (0, 0, 1)
     u[0] = 1;
@@ -203,8 +203,7 @@ struct proton_path {
   int simulate(const double dt, const double absorption_energy,
                const double air_gap, gsl_rng *gen,
                std::vector<Material> &materials) {
-    double nonelastic_jump_rate, elastic_jump_rate, rutherford_jump_rate, alpha,
-        rutherford_min_scatter, u;
+    double nonelastic_jump_rate, rutherford_elastic_jump_rate, alpha, u;
     int ix = 1;
     int material_index = 0;
     int crossed = 0;
@@ -217,25 +216,18 @@ struct proton_path {
       if (energy[ix - 1] > absorption_energy) {
         nonelastic_jump_rate =
             materials[material_index].nonelastic_rate(energy[ix - 1]);
-        elastic_jump_rate =
-            materials[material_index].elastic_rate(energy[ix - 1]);
-        // Minimum threshold of 0.2 radians for single-scattering from Geant4
-        rutherford_min_scatter = 0.2;
-        rutherford_jump_rate = materials[material_index].rutherford_rate(
-            energy[ix - 1], rutherford_min_scatter);
-        alpha = elastic_jump_rate + nonelastic_jump_rate + rutherford_jump_rate;
+        // 2 * materials[material_index].multiple_scattering_sd(energy[ix - 1],
+        //        dt);
+
+        rutherford_elastic_jump_rate =
+            materials[material_index].rutherford_and_elastic_rate(
+                energy[ix - 1]);
+        alpha = rutherford_elastic_jump_rate + nonelastic_jump_rate;
         if (gsl_rng_uniform(gen) < 1 - exp(-alpha * dt)) {
           u = gsl_rng_uniform(gen);
-          if (u < rutherford_jump_rate / alpha) {
-            // Undo change in angle due to diffusion here because it is
-            // accounted for in the Rutherford cross section in elastic_scatter.
-            omega[ix - 1][0] = omega[ix - 2][0];
-            omega[ix - 1][1] = omega[ix - 2][1];
-            materials[material_index].rutherford_scatter(
-                omega[ix - 1], rutherford_min_scatter, gen);
-          } else if (u < (rutherford_jump_rate + elastic_jump_rate) / alpha) {
-            materials[material_index].elastic_scatter(omega[ix - 1],
-                                                      energy[ix - 1], gen);
+          if (u < rutherford_elastic_jump_rate / alpha) {
+            materials[material_index].rutherford_elastic_scatter(
+                omega[ix - 1], energy[ix - 1], gen);
           } else {
             materials[material_index].nonelastic_scatter(omega[ix - 1],
                                                          energy[ix - 1], gen);
