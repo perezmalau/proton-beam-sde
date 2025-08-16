@@ -9,51 +9,6 @@
 
 #ifndef CS
 #define CS
-// necessary coef for proton-proton is ia = oa = 1 iz = oz = 0,
-// this class is incident/outgoing particle dependent generally,
-// preparing setup for general case
-// defining here instead of materials as
-// appears in ENDF cross section struct as input to member function
-struct AtomConsts {
-
-  const int a, z;
-  const double Mi, Mo, ANU, BNU, iNU, oNU, Si, So;
-  double AngleScatterCoef(const int AC, const int NC, const int ZC,
-                          const int AX, const int NX, const int ZX,
-                          const double sep) const {
-    double temp = 15.68 * (AC - AX) -
-                  (28.07 * ((pow(NC - ZC, 2) / static_cast<double>(AC)) -
-                            (pow(NX - ZX, 2) / static_cast<double>(AX)))) -
-                  (18.56 * (pow(AC, 2.0 / 3.0) - pow(AX, 2.0 / 3.0))) +
-                  (33.22 * ((pow(NC - ZC, 2) / pow(AC, 4.0 / 3.0)) -
-                            (pow(NX - ZX, 2) / pow(AX, 4.0 / 3.0)))) -
-                  (0.717 * ((pow(ZC, 2) / pow(AC, 1.0 / 3.0)) -
-                            (pow(ZX, 2) / pow(AX, 1.0 / 3.0)))) +
-                  (1.211 * ((pow(ZC, 2) / static_cast<double>(AC)) -
-                            (pow(ZX, 2) / static_cast<double>(AX)))) -
-                  sep;
-    return temp;
-  }
-  AtomConsts(const int a0, const int z0, const int ia, const int iz,
-             const int oa, const int oz, const int mi, const int mo,
-             const double sepi, const double sepo)
-      : a(a0), z(z0), Mi(mi), Mo(mo),
-        ANU(((a0 - z0) * 1.0087 + z0 * 1.0073) / 1.0087),
-        BNU(((a0 + ia - oa - z0 - iz + oz) * 1.0087 + (z0 + iz - oz) * 1.0073) /
-            1.0087),
-        iNU(((ia - iz) * 1.0087 + iz * 1.0073) / 1.0087),
-        oNU(((oa - oz) * 1.0087 + oz * 1.0073) / 1.0087),
-        Si(AngleScatterCoef(a0 + ia, a0 + ia - z0 - iz, z0 + iz, a0, a0 - z0,
-                            z0, sepi)),
-        So(AngleScatterCoef(a0 + oa, a0 + oa - z0 - oz, z0 + oz, a0, a0 - z0,
-                            z0, sepo)) {}
-
-  AtomConsts(const AtomConsts &other)
-      : a(other.a), z(other.z), Mi(other.Mi), Mo(other.Mo), ANU(other.ANU),
-        BNU(other.BNU), iNU(other.iNU), oNU(other.oNU), Si(other.Si),
-        So(other.So) {}
-  AtomConsts() : a(), z(), Mi(), Mo(), ANU(), BNU(), iNU(), oNU(), Si(), So() {}
-};
 
 struct CS_1d {
 
@@ -174,7 +129,7 @@ struct CS_3d {
     return;
   }
 
-  void sample(double &e, gsl_rng *gen, AtomConsts &coef, double &alpha) const {
+  void sample(const double e, double &r, double &out_e_cm, gsl_rng *gen) const {
     int energy_index = std::distance(
         energy.begin(), std::lower_bound(energy.begin(), energy.end(), e));
     double u = gsl_rng_uniform(gen);
@@ -194,32 +149,8 @@ struct CS_3d {
       out_energy_cm = out_energy_cm * diff + out_energy_cm_2 * (1 - diff);
       out_rvalue = out_rvalue * diff + out_rvalue_2 * (1 - diff);
     }
-    double ea = e * (coef.ANU / (coef.ANU + coef.iNU));
-    double eb = out_energy_cm * ((coef.BNU + coef.oNU) / (coef.BNU));
-    double Ea = ea + coef.Si;
-    double Eb = eb + coef.So;
-    double X1 = fmin(Ea, 130) * Eb / Ea;
-    double X3 = fmin(Ea, 41) * Eb / Ea;
-    double aval = (0.04 * X1) + (1.8 * 1e-6 * pow(X1, 3)) +
-                  (6.7 * 1e-7 * coef.Mi * coef.Mo * pow(X3, 4));
-    double cdfc2 = out_rvalue * cosh(aval) - sinh(aval);
-    double cdfc1 = 2 * sinh(aval);
-    double u2 = gsl_rng_uniform(gen);
-    double z = cdfc1 * u2 + cdfc2;
-    double z2 = (z + pow(pow(z, 2) - pow(out_rvalue, 2) + 1, 1.0 / 2.0)) /
-                (out_rvalue + 1);
-    double out_angle_cm = log(z2) / aval;
-    double out_energy_lab =
-        out_energy_cm +
-        e * coef.iNU * coef.oNU / pow(coef.ANU + coef.iNU, 2) +
-        2 * sqrt(coef.iNU * coef.oNU * out_energy_cm * e) *
-          out_angle_cm / (coef.ANU + coef.iNU);
-    double out_angle_lab =
-        sqrt(out_energy_cm / out_energy_lab) * out_angle_cm +
-        sqrt(coef.iNU * coef.oNU * e / out_energy_lab) /
-         (coef.ANU + coef.iNU);
-    e = out_energy_lab;
-    alpha = out_angle_lab;
+    r = out_rvalue;
+    out_e_cm = out_energy_cm;
     return;
   }
 
