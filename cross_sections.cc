@@ -143,7 +143,7 @@ struct CS_3d {
       sample_from_energy_index(energy_index, u, out_energy_cm, out_rvalue);
     } else {
       sample_from_energy_index(energy_index, u, out_energy_cm, out_rvalue);
-      sample_from_energy_index(energy_index, u, out_energy_cm_2, out_rvalue_2);
+      sample_from_energy_index(energy_index - 1, u, out_energy_cm_2, out_rvalue_2);
       diff = (e - energy[energy_index - 1]) /
              (energy[energy_index] - energy[energy_index - 1]);
       out_energy_cm = out_energy_cm * diff + out_energy_cm_2 * (1 - diff);
