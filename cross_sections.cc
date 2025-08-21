@@ -41,12 +41,12 @@ struct CS_1d {
     while (getline(iss, token, ' ')) {
       energy.push_back(atof(token.c_str()));
     }
-    double tmp_val, tmp_val_old, Lin_inter_val;
+    double tmp_val, tmp_val_old, lin_inter_val = 0;
     int tmp_count, tmp_count_2;
-    bool Lin_inter_bool;
+    bool lin_inter_bool;
     while (getline(file, line)) {
       tmp_count = 0;
-      Lin_inter_bool = true;
+      lin_inter_bool = true;
       std::stringstream iss2;
       iss2 << line;
       while (getline(iss2, token, ' ')) {
@@ -54,13 +54,13 @@ struct CS_1d {
         if (tmp_val > cuttoff) {
           tmp_count++;
           tmp_val_old = tmp_val;
-        } else if (Lin_inter_bool) {
-          Lin_inter_val = (tmp_val - cuttoff) / (tmp_val - tmp_val_old);
-          Lin_inter_bool = false;
+        } else if (lin_inter_bool) {
+          lin_inter_val = (tmp_val - cuttoff) / (tmp_val - tmp_val_old);
+          lin_inter_bool = false;
         }
       }
       tmp_count_2 = 0;
-      Lin_inter_bool = true;
+      lin_inter_bool = true;
       getline(file, line);
       std::stringstream iss3;
       iss3 << line;
@@ -69,10 +69,10 @@ struct CS_1d {
         if (tmp_count_2 < tmp_count) {
           tmp_count_2++;
           tmp_val_old = tmp_val;
-        } else if (Lin_inter_bool) {
-          rate.push_back(tmp_val * Lin_inter_val +
-                         (1 - Lin_inter_val) * tmp_val_old);
-          Lin_inter_bool = false;
+        } else if (lin_inter_bool) {
+          rate.push_back(tmp_val * lin_inter_val +
+                         (1 - lin_inter_val) * tmp_val_old);
+          lin_inter_bool = false;
         }
       }
     }
@@ -86,6 +86,7 @@ struct CS_1d {
   double evaluate(const double e) const {
     double ret = 0;
     int r;
+    double tol = 1e-7;
     if (energy.size() > 0) {
       if (e <= energy[0]) {
         ret = rate[0];
@@ -94,8 +95,13 @@ struct CS_1d {
       } else {
         r = std::distance(energy.begin(),
                           std::lower_bound(energy.begin(), energy.end(), e));
-        ret = ((energy[r] - e) * rate[r - 1] + (e - energy[r - 1]) * rate[r]) /
+        if (energy[r] - energy[r - 1] > tol) {
+          ret =
+              ((energy[r] - e) * rate[r - 1] + (e - energy[r - 1]) * rate[r]) /
               (energy[r] - energy[r - 1]);
+        } else {
+          ret = energy[r];
+        }
       }
     }
     return ret;
@@ -155,23 +161,33 @@ struct CS_3d {
                                 double &out_energy_cm,
                                 double &out_rvalue) const {
     double diff = 0;
+    double tol = 1e-7;
     int density_index =
         std::distance(cdf[energy_index].begin(),
                       std::lower_bound(cdf[energy_index].begin(),
                                        cdf[energy_index].end(), u));
-    if (density_index == 0 || density_index == int(cdf[energy_index].size())) {
-      density_index =
-          std::min(density_index, int(cdf[energy_index].size()) - 1);
-      out_energy_cm = exit_energy[energy_index][density_index];
-      out_rvalue = rvalue[energy_index][density_index];
+    if (density_index == 0) {
+      out_energy_cm = exit_energy[energy_index][0];
+      out_rvalue = rvalue[energy_index][0];
+    } else if (density_index == int(cdf[energy_index].size())) {
+      out_energy_cm = exit_energy[energy_index].back();
+      out_rvalue = rvalue[energy_index].back();
     } else {
-      diff = (u - cdf[energy_index][density_index - 1]) /
-             (cdf[energy_index][density_index] -
-              cdf[energy_index][density_index - 1]);
-      out_energy_cm = exit_energy[energy_index][density_index] * diff +
-                      exit_energy[energy_index][density_index - 1] * (1 - diff);
-      out_rvalue = rvalue[energy_index][density_index] * diff +
-                   rvalue[energy_index][density_index - 1] * (1 - diff);
+      if (cdf[energy_index][density_index] -
+              cdf[energy_index][density_index - 1] >
+          tol) {
+        diff = (u - cdf[energy_index][density_index - 1]) /
+               (cdf[energy_index][density_index] -
+                cdf[energy_index][density_index - 1]);
+        out_energy_cm =
+            exit_energy[energy_index][density_index] * diff +
+            exit_energy[energy_index][density_index - 1] * (1 - diff);
+        out_rvalue = rvalue[energy_index][density_index] * diff +
+                     rvalue[energy_index][density_index - 1] * (1 - diff);
+      } else {
+        out_energy_cm = exit_energy[energy_index][density_index];
+        out_rvalue = rvalue[energy_index][density_index];
+      }
     }
     return;
   }
@@ -185,17 +201,21 @@ struct CS_3d {
     double out_rvalue;
     double out_rvalue_2;
     double diff;
-    if (energy_index == 0 || energy_index == int(energy.size())) {
-      energy_index = std::min(energy_index, int(energy.size()) - 1);
-      sample_from_energy_index(energy_index, u, out_energy_cm, out_rvalue);
+    double tol = 1e-7;
+    if (energy_index == 0) {
+      sample_from_energy_index(0, u, out_energy_cm, out_rvalue);
+    } else if (energy_index == int(energy.size())) {
+      sample_from_energy_index(energy_index - 1, u, out_energy_cm, out_rvalue);
     } else {
       sample_from_energy_index(energy_index, u, out_energy_cm, out_rvalue);
-      sample_from_energy_index(energy_index - 1, u, out_energy_cm_2,
-                               out_rvalue_2);
-      diff = (e - energy[energy_index - 1]) /
-             (energy[energy_index] - energy[energy_index - 1]);
-      out_energy_cm = out_energy_cm * diff + out_energy_cm_2 * (1 - diff);
-      out_rvalue = out_rvalue * diff + out_rvalue_2 * (1 - diff);
+      if (energy[energy_index] - energy[energy_index - 1] > tol) {
+        sample_from_energy_index(energy_index - 1, u, out_energy_cm_2,
+                                 out_rvalue_2);
+        diff = (e - energy[energy_index - 1]) /
+               (energy[energy_index] - energy[energy_index - 1]);
+        out_energy_cm = out_energy_cm * diff + out_energy_cm_2 * (1 - diff);
+        out_rvalue = out_rvalue * diff + out_rvalue_2 * (1 - diff);
+      }
     }
     r = out_rvalue;
     out_e_cm = out_energy_cm;
@@ -220,13 +240,13 @@ struct CS_2d {
       energy.push_back(atof(token.c_str()));
     }
     std::vector<double> tmp_vec;
-    double tmp_val, tmp_val_old, Lin_inter_val, total_rate;
+    double tmp_val, tmp_val_old, total_rate, lin_inter_val = 0;
     int tmp_count, tmp_count_2;
-    bool Lin_inter_bool;
+    bool lin_inter_bool;
     while (getline(file, line)) {
       tmp_vec.clear();
       tmp_count = 0;
-      Lin_inter_bool = true;
+      lin_inter_bool = true;
       std::stringstream iss2;
       iss2 << line;
       while (getline(iss2, token, ' ')) {
@@ -235,15 +255,15 @@ struct CS_2d {
           tmp_count++;
           tmp_vec.push_back(tmp_val);
           tmp_val_old = tmp_val;
-        } else if (Lin_inter_bool) {
-          Lin_inter_val = (cuttoff - tmp_val_old) / (tmp_val - tmp_val_old);
-          Lin_inter_bool = false;
+        } else if (lin_inter_bool) {
+          lin_inter_val = (cuttoff - tmp_val_old) / (tmp_val - tmp_val_old);
+          lin_inter_bool = false;
           tmp_vec.push_back(cuttoff);
         }
       }
       exit_angle.push_back(tmp_vec);
       tmp_count_2 = 0;
-      Lin_inter_bool = true;
+      lin_inter_bool = true;
       getline(file, line);
       tmp_vec.clear();
       std::stringstream iss3;
@@ -254,10 +274,10 @@ struct CS_2d {
           tmp_count_2++;
           tmp_vec.push_back(tmp_val);
           tmp_val_old = tmp_val;
-        } else if (Lin_inter_bool) {
-          tmp_vec.push_back(tmp_val * Lin_inter_val +
-                            (1 - Lin_inter_val) * tmp_val_old);
-          Lin_inter_bool = false;
+        } else if (lin_inter_bool) {
+          tmp_vec.push_back(tmp_val * lin_inter_val +
+                            (1 - lin_inter_val) * tmp_val_old);
+          lin_inter_bool = false;
         }
       }
       total_rate = tmp_vec.back();
@@ -278,20 +298,27 @@ struct CS_2d {
                                   const double u) const {
     double ret = 0;
     double diff = 0;
+    double tol = 1e-7;
     int density_index =
         std::distance(cdf[energy_index].begin(),
                       std::lower_bound(cdf[energy_index].begin(),
                                        cdf[energy_index].end(), u));
-    if (density_index == 0 || density_index == int(cdf[energy_index].size())) {
-      density_index =
-          std::min(density_index, int(cdf[energy_index].size()) - 1);
-      ret = exit_angle[energy_index][density_index];
+    if (density_index == 0) {
+      ret = exit_angle[energy_index][0];
+    } else if (density_index == int(cdf[energy_index].size())) {
+      ret = exit_angle[energy_index].back();
     } else {
-      diff = (u - cdf[energy_index][density_index - 1]) /
-             (cdf[energy_index][density_index] -
-              cdf[energy_index][density_index - 1]);
-      ret = exit_angle[energy_index][density_index] * diff +
-            exit_angle[energy_index][density_index - 1] * (1 - diff);
+      if (cdf[energy_index][density_index] -
+              cdf[energy_index][density_index - 1] >
+          tol) {
+        diff = (u - cdf[energy_index][density_index - 1]) /
+               (cdf[energy_index][density_index] -
+                cdf[energy_index][density_index - 1]);
+        ret = exit_angle[energy_index][density_index] * diff +
+              exit_angle[energy_index][density_index - 1] * (1 - diff);
+      } else {
+        ret = exit_angle[energy_index][density_index];
+      }
     }
     return ret;
   }
@@ -303,15 +330,19 @@ struct CS_2d {
     double out_angle_cm;
     double out_angle_cm_2;
     double diff;
-    if (energy_index == 0 || energy_index == int(energy.size())) {
-      energy_index = std::min(energy_index, int(energy.size()) - 1);
-      out_angle_cm = sample_from_energy_index(energy_index, u);
+    double tol = 1e-7;
+    if (energy_index == 0) {
+      out_angle_cm = sample_from_energy_index(0, u);
+    } else if (energy_index == int(energy.size())) {
+      out_angle_cm = sample_from_energy_index(energy_index - 1, u);
     } else {
       out_angle_cm = sample_from_energy_index(energy_index, u);
-      out_angle_cm_2 = sample_from_energy_index(energy_index - 1, u);
-      diff = (e - energy[energy_index - 1]) /
-             (energy[energy_index] - energy[energy_index - 1]);
-      out_angle_cm = out_angle_cm * diff + out_angle_cm_2 * (1 - diff);
+      if (energy[energy_index] - energy[energy_index - 1] > tol) {
+        out_angle_cm_2 = sample_from_energy_index(energy_index - 1, u);
+        diff = (e - energy[energy_index - 1]) /
+               (energy[energy_index] - energy[energy_index - 1]);
+        out_angle_cm = out_angle_cm * diff + out_angle_cm_2 * (1 - diff);
+      }
     }
     return out_angle_cm;
   }

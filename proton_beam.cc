@@ -228,7 +228,6 @@ struct proton_path {
       if (energy[ix - 1] > absorption_energy) {
         nonelastic_jump_rate =
             materials[material_index].nonelastic_rate(energy[ix - 1]);
-
         rutherford_elastic_jump_rate =
             materials[material_index].rutherford_and_elastic_rate(
                 energy[ix - 1]);
