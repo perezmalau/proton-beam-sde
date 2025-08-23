@@ -248,15 +248,6 @@ struct proton_path {
     return ix;
   }
 
-  void print() {
-    for (unsigned int i = 0; i < x.size(); i++) {
-      std::cout << x[i][0] << " " << x[i][1] << " " << x[i][2] << " "
-                << omega[i][0] << " " << omega[i][1] << " " << energy[i] << " "
-                << s[i] << std::endl;
-    }
-    return;
-  }
-
   std::vector<double> energy, s;
   std::vector<std::vector<double>> x, omega;
   // Dummy vectors for spherical BM

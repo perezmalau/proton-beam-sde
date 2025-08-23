@@ -1,6 +1,5 @@
 #include "cross_sections.cc"
-#include "grid_2d.cc"
-#include "grid_3d.cc"
+#include "grid.cc"
 #include "material.cc"
 #include "proton_beam.cc"
 #include <cstdlib>
@@ -82,46 +81,13 @@ int main(int argc, char **argv) {
 
   double grid_dx;
   cfg.lookupValue("grid_dx", grid_dx);
-
-  int output_1d, output_2d, output_3d, output_2d_slice;
-  std::string path_1d, path_2d, path_3d, path_slice;
-  cfg.lookupValue("output_1d", output_1d);
-  cfg.lookupValue("output_2d", output_2d);
-  cfg.lookupValue("output_3d", output_3d);
-  cfg.lookupValue("output_2d_slice", output_2d_slice);
-  if (output_1d == 1) {
-    cfg.lookupValue("out_path_1d", path_1d);
-  }
-  if (output_2d == 1) {
-    cfg.lookupValue("out_path_2d", path_2d);
-  }
-  if (output_3d == 1) {
-    cfg.lookupValue("out_path_3d", path_3d);
-  }
-  if (output_2d_slice == 1) {
-    cfg.lookupValue("out_path_2d_slice", path_slice);
-  }
+  std::string out_path;
+  cfg.lookupValue("out_path", out_path);
 
   proton_path p(initial_e_mean + 3 * initial_e_sd, dt, air_gap, absorption_e,
                 materials);
   int n = p.energy.size();
-  // We need all grids to be initialised for code to compile
-  // but make unneeded ones tiny
-  int tmp = n * grid_dx / dt;
-  if (output_1d == 0 && output_2d == 0) {
-    tmp = 1;
-  }
-  Grid_2d g2d(tmp, grid_dx);
-  tmp = n * grid_dx / dt;
-  if (output_3d == 0) {
-    tmp = 1;
-  }
-  Grid_3d g3d(tmp, grid_dx);
-  tmp = n * grid_dx / dt;
-  if (output_2d_slice == 0) {
-    tmp = 1;
-  }
-  Grid_2d g2d_slice(tmp, grid_dx);
+  Grid grid(n * grid_dx / dt, grid_dx);
 
   int len;
   for (int i = 0; i < nrep; i++) {
@@ -132,28 +98,9 @@ int main(int argc, char **argv) {
     } while (x[1] * x[1] + x[2] * x[2] > nozzle_radius * nozzle_radius);
     p.reset(e0, x, w);
     len = p.simulate(dt, absorption_e, air_gap, gen, materials);
-    if (output_1d == 1 || output_2d == 1) {
-      g2d.add(p.x, p.s, len);
-    }
-    if (output_3d == 1) {
-      g3d.add(p.x, p.s, len);
-    }
-    if (output_2d_slice == 1) {
-      g2d_slice.add_to_slice(p.x, p.s, len);
-    }
+    grid.add(p.x, p.s, len);
   }
-  if (output_1d == 1) {
-    g2d.print_1d(path_1d);
-  }
-  if (output_2d == 1) {
-    g2d.print(path_2d);
-  }
-  if (output_3d == 1) {
-    g3d.print(path_3d);
-  }
-  if (output_2d_slice == 1) {
-    g2d_slice.print(path_slice);
-  }
+  grid.print(out_path);
   gsl_rng_free(gen);
   return 1;
 }
