@@ -22,35 +22,27 @@ modify:
 only supported pattern of materials, intended to allow for air before the beam enters a water phantom.**
 - the simulator time-step,
 - the energy at which a proton is absorbed and its path ends,
-- the side length of output voxelation (**Warning**: very small voxels result in a large memory cost,
-  especially if 3d output is desired),
-- desired output modes:
-  * `output_3d = 1` outputs the full 3d voxelation of dose deposition,
-  * `output_2d = 1` and `output_1d = 1` output the dose with 1 or 2 dimensions integrated out,
-  * `output_2d_slice = 1` returns the 2d dose deposition along a one-voxel slice at `z = 0`.
-  * Setting any output mode to 0 means that output is not produced. A 3d voxel grid is only created if
-    `output_3d = 1`, which slows down the simulation and increases memory cost significantly.
-  * The `out_path` variables specify files in which the outputs should be stored.
+- the side length of output voxelation,
+- the path to which a sparse 3d grid of dose deposition is stored.
 
 After compilation, run the simulation by calling `./simulate sim.cfg` at the project root.
 You can also replace the `sim.cfg` argument with the path to any other appropriate config file.
 **Warning**: The default number of protons in `sim.cfg` is set to one million, and voxel sizes and time
-steps are also set to a moderate resolution. As a result, the simulation can take 2-3 minutes.
+steps are also set to a moderate resolution. As a result, the simulation can take 1-2 minutes.
 
 # Post-processing
 
-Default output paths are specified into the `Output` folder, which contains the `plots.R` script for output
+Default output paths are specified into the `Output` folder, which contains the `plot.py` script for output
 visualisation. To use it you will need:
 
-- [R](https://www.r-project.org/) (tested on version 4.3.3),
-- the [viridis](https://cran.r-project.org/web/packages/viridis/index.html) package (tested on version 0.6.5),
-- while not strictly necessary, [RStudio](https://posit.co/) or a similar IDE will also make life easier
-  (tested on RStudio version 2023.06.1).
+- [Python 3](https://www.python.org/) (tested on version 3.12.3), as well as the following Python modules:
+- numpy (tested on version 1.26.4),
+- matplotlib (tested on version 3.10.0),
+- itk (tested on version 5.4.4).
 
 If you have used the default number of protons, as well as output modes and paths in `sim.cfg`, you can simply
-run `plots.R` to produce heatmaps of the integrated 2d dose, and the integrated 1d dose.
-Make sure the R working directory is set to the project root (or the location of your simulation output files,
-if different).
+run `plot.py` to produce heatmaps of the integrated 2d dose, 2d slices through the beam in all three coordinates,
+the integrated 1d dose, as well as the 1d dose through the central voxel of the beam.
 
 # Python
 
