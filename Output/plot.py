@@ -121,7 +121,7 @@ def plot_all_slices(mat):
 # ---------------------------TODO: EXECUTION --------------------------------------
 MeV_to_Gy = 1.602 * 10 ** (-13)
 
-sde = retrieve_sde_output("Output/test.txt")
+sde = retrieve_sde_output("./test.txt")
 sde_dose = sde * MeV_to_Gy * 10**6  # conversion to dose in microGy
 
 plot_projection(sde_dose)
