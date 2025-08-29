@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import itk
 
+MeV_to_Gy = 1.602 * 10 ** (-13)
+
 
 # Obtain SDE output from the txt file generated
 def retrieve_sde_output(filename, airgap=0, bin_size=0.1):
@@ -31,44 +33,129 @@ def retrieve_sde_output(filename, airgap=0, bin_size=0.1):
     return volume
 
 
+# Obtain geant4 output from the csv file generated
+def retrieve_g4_output(filename):
+    x, y, z, vals = np.genfromtxt(filename, unpack=True, delimiter=",", skip_header=1)
+    x = x.astype(int)
+    y = y.astype(int)
+    z = z.astype(int)
+    volume = np.zeros((100, 100, 100))
+    for i in range(len(x)):
+        volume[x[i], y[i], z[i]] = vals[i]
+
+    return volume
+
+
+# Compares central slice in a defined axis for both geant4 and SDE
+def plot_slice(g4_mat, sde_mat, axis="x"):
+    if axis == "x":
+        g4_slice = g4_mat[49, :, :]
+        sde_slice = sde_mat[49, :, :]
+    elif axis == "y":
+        g4_slice = g4_mat[:, 49, :]
+        sde_slice = sde_mat[:, 49, :]
+    else:
+        g4_slice = g4_mat[:, :, 49]
+        sde_slice = sde_mat[:, :, 49]
+    # For a common colorbar ignoring infinite values when taking the log
+    with np.errstate(divide="ignore"):
+        g4_log = np.log10(g4_slice)
+        sde_log = np.log10(sde_slice)
+
+    g4_log[np.isneginf(g4_log)] = np.nan
+    sde_log[np.isneginf(sde_log)] = np.nan
+
+    vmin = np.nanmin([g4_log, sde_log])
+    vmax = np.nanmax([g4_log, sde_log])
+
+    f, ax = plt.subplots(1, 2, sharey=True, figsize=(11, 5))
+    im1 = ax[0].imshow(
+        g4_log.T, extent=[0, 10, -5, 5], origin="lower", vmin=vmin, vmax=vmax
+    )
+    im2 = ax[1].imshow(
+        sde_log.T, extent=[0, 10, -5, 5], origin="lower", vmin=vmin, vmax=vmax
+    )
+    f.colorbar(
+        im2,
+        ax=ax.ravel().tolist(),
+        label=r"Log(Dose[$\mu$Gy])",
+        fraction=0.05,
+        pad=0.04,
+    )
+    if axis == "x":
+        ax[0].set_ylabel("y (cm)")
+        ax[0].set_xlabel("z (cm)")
+        ax[1].set_xlabel("z (cm)")
+    elif axis == "y":
+        ax[0].set_ylabel("z (cm)")
+        ax[0].set_xlabel("x (cm)")
+        ax[1].set_xlabel("x (cm)")
+    else:
+        ax[0].set_ylabel("y (cm)")
+        ax[0].set_xlabel("x (cm)")
+        ax[1].set_xlabel("x (cm)")
+    ax[0].set_title("Geant4", fontweight="bold")
+    ax[1].set_title("SDE", fontweight="bold")
+    plt.suptitle(f"Central slice in {axis}", fontweight="bold")
+    # plt.subplots_adjust(top = 1, bottom = 0.1, right = 0.9, left = 0.1, hspace = 0.3, wspace = 0.1)
+    plt.show(block=True)
+
+
 # Compares 2D projections
-def plot_projection(sde_mat):
+def plot_projection(g4_mat, sde_mat):
+    g4_dose_proj = np.sum(g4_mat, axis=2)
     sde_dose_proj = np.sum(sde_mat, axis=2)
 
     # For a common colorbar ignoring infinite values when taking the log
     with np.errstate(divide="ignore"):
+        g4_log = np.log10(g4_dose_proj)
         sde_log = np.log10(sde_dose_proj)
 
+    g4_log[np.isneginf(g4_log)] = np.nan
     sde_log[np.isneginf(sde_log)] = np.nan
 
-    vmin = np.nanmin(sde_log)
-    vmax = np.nanmax(sde_log)
+    vmin = np.nanmin([g4_log, sde_log])
+    vmax = np.nanmax([g4_log, sde_log])
 
-    plt.plot()
-    im = plt.imshow(
+    f, ax = plt.subplots(1, 2, sharey=True, figsize=(11, 5))
+    im1 = ax[0].imshow(
+        g4_log.T, extent=[0, 10, -5, 5], origin="lower", vmin=vmin, vmax=vmax
+    )
+    im2 = ax[1].imshow(
         sde_log.T, extent=[0, 10, -5, 5], origin="lower", vmin=vmin, vmax=vmax
     )
-    plt.colorbar(
-        im, label=r"Log(Dose[$\mu$Gy]), summed over z", fraction=0.05, pad=0.04
+    f.colorbar(
+        im2,
+        ax=ax.ravel().tolist(),
+        label=r"Log(Dose[$\mu$Gy]), summed over z",
+        fraction=0.05,
+        pad=0.04,
     )
-    plt.ylabel("y (cm)")
-    plt.xlabel("x (cm)")
-    plt.title("X-Y projection", fontweight="bold")
+    ax[0].set_ylabel("y (cm)")
+    ax[0].set_xlabel("x (cm)")
+    ax[1].set_xlabel("x (cm)")
+    ax[0].set_title("Geant4", fontweight="bold")
+    ax[1].set_title("SDE", fontweight="bold")
+    # plt.subplots_adjust(top = 1, bottom = 0.1, right = 0.9, left = 0.1, hspace = 0.3, wspace = 0.1)
     plt.show(block=True)
 
 
 # Compares 1D dose either summed (projection) or from a slice
 def plot_bragg_peak(
-    sde_mat, how="proj"
+    g4_mat, sde_mat, how="proj"
 ):  # Define if projected Bragg peak or from a slice
     if how == "proj":
+        g4_dose1d = np.sum(g4_mat, axis=(1, 2))
         sde_dose1d = np.sum(sde_mat, axis=(1, 2))
     else:
         sde_dose1d = sde_mat[:, 49, 49]
+        g4_dose1d = g4_mat[:, 49, 49]
 
     x = np.linspace(0.1, 10, 100)
     plt.figure()
+    plt.plot(x, g4_dose1d, label="Geant4")
     plt.plot(x, sde_dose1d, label="SDE")
+    plt.legend()
     plt.xlabel("Depth (cm)")
     plt.ylabel(r"Dose ($\mu$Gy)")
     plt.show(block=True)
@@ -119,12 +206,16 @@ def plot_all_slices(mat):
 
 
 # ---------------------------TODO: EXECUTION --------------------------------------
-MeV_to_Gy = 1.602 * 10 ** (-13)
+geant4 = retrieve_g4_output("./G4_TotalEneDepMap_1E6.csv")
+g4_dose = geant4 * MeV_to_Gy * 10**6  # conversion to dose in microGy
 
 sde = retrieve_sde_output("./test.txt")
 sde_dose = sde * MeV_to_Gy * 10**6  # conversion to dose in microGy
 
-plot_projection(sde_dose)
+plot_projection(g4_dose, sde_dose)
 plot_all_slices(sde_dose)
-plot_bragg_peak(sde_dose, how="proj")
-plot_bragg_peak(sde_dose, how="slice")
+plot_slice(g4_dose, sde_dose, "x")
+plot_slice(g4_dose, sde_dose, "y")
+plot_slice(g4_dose, sde_dose, "z")
+plot_bragg_peak(g4_dose, sde_dose, how="proj")
+plot_bragg_peak(g4_dose, sde_dose, how="slice")
