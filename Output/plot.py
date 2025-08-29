@@ -4,7 +4,7 @@ import itk
 
 
 # Obtain SDE output from the txt file generated
-def retrieve_sde_output(filename, airgap=0.1, bin_size=0.1):
+def retrieve_sde_output(filename, airgap=0, bin_size=0.1):
     data = np.genfromtxt(filename)
     # Filter to region of interest, adjusted by airgap on x
     data = data[
