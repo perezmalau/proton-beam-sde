@@ -41,7 +41,7 @@ struct CS_1d {
     while (getline(iss, token, ' ')) {
       energy.push_back(atof(token.c_str()));
     }
-    double tmp_val, tmp_val_old, lin_inter_val = 0;
+    double tmp_val, tmp_val_old = 0, lin_inter_val = 0;
     int tmp_count, tmp_count_2;
     bool lin_inter_bool;
     while (getline(file, line)) {
@@ -112,8 +112,8 @@ struct CS_1d {
       energy.push_back(atof(token.c_str()));
     }
     std::vector<double> tmp_vec;
-    double lab_ang_cutoff, tmp_val, tmp_val_old, top_rate, bottom_rate,
-        total_rate, lin_inter_val = 0;
+    double lab_ang_cutoff, tmp_val, tmp_val_old = 0, top_rate, bottom_rate,
+                                    total_rate, lin_inter_val = 0;
     int tmp_count, tmp_count_2, tmp_count_back, tmp_count_back_2,
         energy_index = 0;
     bool lin_inter_bool;
@@ -329,7 +329,7 @@ struct CS_2d {
       energy.push_back(atof(token.c_str()));
     }
     std::vector<double> tmp_vec;
-    double tmp_val, tmp_val_old, total_rate, lin_inter_val = 0;
+    double tmp_val, tmp_val_old = 0, total_rate, lin_inter_val = 0;
     int tmp_count, tmp_count_2;
     bool lin_inter_bool;
     while (getline(file, line)) {
@@ -411,8 +411,8 @@ struct CS_2d {
       energy.push_back(atof(token.c_str()));
     }
     std::vector<double> tmp_vec;
-    double lab_ang_cutoff, tmp_val, tmp_val_old, top_rate, bottom_rate,
-        total_rate, lin_inter_val = 0;
+    double lab_ang_cutoff, tmp_val, tmp_val_old = 0, top_rate, bottom_rate,
+                                    total_rate, lin_inter_val = 0;
     int tmp_count, tmp_count_2, tmp_count_back, tmp_count_back_2,
         energy_index = 0;
     bool lin_inter_bool;
