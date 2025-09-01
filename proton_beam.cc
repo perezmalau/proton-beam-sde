@@ -240,7 +240,6 @@ struct proton_path {
           } else {
             materials[material_index].nonelastic_scatter(omega[ix - 1],
                                                          energy[ix - 1], gen);
-            s[ix - 1] = (energy[ix - 2] - energy[ix - 1]);
           }
         }
       }
