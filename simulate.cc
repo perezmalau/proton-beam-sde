@@ -2,6 +2,7 @@
 #include "grid.cc"
 #include "material.cc"
 #include "proton_beam.cc"
+#include <cfloat>
 #include <cstdlib>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_rng.h>
@@ -73,20 +74,30 @@ int main(int argc, char **argv) {
   cfg.lookupValue("initial_e_mean", initial_e_mean);
   cfg.lookupValue("initial_e_sd", initial_e_sd);
 
-  double dt, absorption_e, air_gap;
+  double dt, absorption_e;
   int nrep;
   cfg.lookupValue("step_size", dt);
   cfg.lookupValue("absorption_energy", absorption_e);
   cfg.lookupValue("replicates", nrep);
-  cfg.lookupValue("air_gap", air_gap);
+
+  const libconfig::Setting &root = cfg.getRoot();
+  std::vector<double> change_points(root["change_points"].getLength());
+  std::vector<int> interval_materials(root["interval_materials"].getLength());
+  for (unsigned int i = 0; i < change_points.size(); i++) {
+    change_points[i] = root["change_points"][i];
+    interval_materials[i] = root["interval_materials"][i];
+  }
+  change_points.push_back(DBL_MAX);
+  interval_materials[interval_materials.size() - 1] =
+      root["interval_materials"][interval_materials.size() - 1];
 
   double grid_dx;
   cfg.lookupValue("grid_dx", grid_dx);
   std::string out_path;
   cfg.lookupValue("out_path", out_path);
 
-  proton_path p(initial_e_mean + 3 * initial_e_sd, dt, air_gap, absorption_e,
-                materials);
+  proton_path p(initial_e_mean + 3 * initial_e_sd, dt, absorption_e,
+                change_points, interval_materials, materials);
   int n = p.energy.size();
   Grid grid(n * grid_dx / dt, grid_dx);
 
@@ -98,7 +109,8 @@ int main(int argc, char **argv) {
       x[2] = gsl_ran_gaussian_ziggurat(gen, initial_x_sd);
     } while (x[1] * x[1] + x[2] * x[2] > nozzle_radius * nozzle_radius);
     p.reset(e0, x, w);
-    len = p.simulate(dt, absorption_e, air_gap, gen, materials);
+    len = p.simulate(dt, absorption_e, change_points, interval_materials,
+                     materials, gen);
     grid.add(p.x, p.s, len);
   }
   grid.print(out_path);

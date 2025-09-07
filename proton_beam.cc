@@ -12,10 +12,13 @@
 
 struct proton_path {
 
-  proton_path(const double e0, const double dt, const double air_gap,
-              const double absorption_e, std::vector<Material> &materials)
+  proton_path(const double e0, const double dt, const double absorption_e,
+              const std::vector<double> &change_points,
+              const std::vector<int> &interval_materials,
+              std::vector<Material> &materials)
       : energy(1), s(1), x(1), omega(1), u(3, 0), z(3, 0), w(3, 0) {
-    int n = solve_track_length(e0, dt, air_gap, absorption_e, materials);
+    int n = solve_track_length(e0, dt, absorption_e, change_points,
+                               interval_materials, materials);
     std::vector<double> tmp_x(3, 0);
     std::vector<double> tmp_w(2, 0);
     energy.resize(n, 0);
@@ -33,20 +36,21 @@ struct proton_path {
     return;
   }
 
-  int solve_track_length(const double e0, const double dt, const double air_gap,
+  int solve_track_length(const double e0, const double dt,
                          const double absorption_e,
+                         const std::vector<double> &change_points,
+                         const std::vector<int> &interval_materials,
                          std::vector<Material> &materials) {
     double e = e0;
     double x = 0;
     int n = 1;
     int material_index = 0;
-    int crossed = 0;
     while (e > absorption_e) {
-      if (crossed == 0 && x >= air_gap) {
+      while (x >= change_points[material_index]) {
         material_index++;
-        crossed = 1;
       }
-      e -= materials[material_index].bethe_bloch(e) * dt;
+      e -= materials[interval_materials[material_index]].bethe_bloch(e) * dt;
+      x += dt;
       n++;
     }
     return n;
@@ -213,33 +217,33 @@ struct proton_path {
   }
 
   int simulate(const double dt, const double absorption_energy,
-               const double air_gap, gsl_rng *gen,
-               std::vector<Material> &materials) {
+               const std::vector<double> &change_points,
+               const std::vector<int> &interval_materials,
+               const std::vector<Material> &materials, gsl_rng *gen) {
     double nonelastic_jump_rate, rutherford_elastic_jump_rate, alpha, u;
     int ix = 1;
     int material_index = 0;
-    int crossed = 0;
     while (energy[ix - 1] > absorption_energy) {
-      if (crossed == 0 && x[ix - 1][0] >= air_gap) {
+      while (x[ix - 1][0] >= change_points[material_index]) {
         material_index++;
-        crossed = 1;
       }
-      spherical_bm(dt, ix, gen, materials[material_index]);
+      spherical_bm(dt, ix, gen, materials[interval_materials[material_index]]);
       if (energy[ix - 1] > absorption_energy) {
         nonelastic_jump_rate =
-            materials[material_index].nonelastic_rate(energy[ix - 1]);
-        rutherford_elastic_jump_rate =
-            materials[material_index].rutherford_and_elastic_rate(
+            materials[interval_materials[material_index]].nonelastic_rate(
                 energy[ix - 1]);
+        rutherford_elastic_jump_rate =
+            materials[interval_materials[material_index]]
+                .rutherford_and_elastic_rate(energy[ix - 1]);
         alpha = rutherford_elastic_jump_rate + nonelastic_jump_rate;
         if (gsl_rng_uniform(gen) < 1 - exp(-alpha * dt)) {
           u = gsl_rng_uniform(gen);
           if (u < rutherford_elastic_jump_rate / alpha) {
-            materials[material_index].rutherford_elastic_scatter(
-                omega[ix - 1], energy[ix - 1], gen);
+            materials[interval_materials[material_index]]
+                .rutherford_elastic_scatter(omega[ix - 1], energy[ix - 1], gen);
           } else {
-            materials[material_index].nonelastic_scatter(omega[ix - 1],
-                                                         energy[ix - 1], gen);
+            materials[interval_materials[material_index]].nonelastic_scatter(
+                omega[ix - 1], energy[ix - 1], gen);
           }
         }
       }

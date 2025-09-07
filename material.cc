@@ -205,7 +205,7 @@ struct Material {
   }
 
   void compute_new_angle(std::vector<double> &ang, const double alpha,
-                         const double beta) {
+                         const double beta) const {
     double omega_new1 =
         sin(ang[0]) * cos(ang[1]) * cos(alpha) +
         (cos(ang[0]) * cos(ang[1]) * sin(beta) - sin(ang[1]) * cos(beta)) *
@@ -227,7 +227,8 @@ struct Material {
     return;
   }
 
-  void nonelastic_scatter(std::vector<double> &ang, double &e, gsl_rng *gen) {
+  void nonelastic_scatter(std::vector<double> &ang, double &e,
+                          gsl_rng *gen) const {
     double beta = 2 * M_PI * gsl_rng_uniform(gen);
     double rate = 0;
     for (unsigned int i = 0; i < at.size(); i++) {
@@ -249,7 +250,7 @@ struct Material {
   }
 
   void rutherford_elastic_scatter(std::vector<double> &ang, double &e,
-                                  gsl_rng *gen) {
+                                  gsl_rng *gen) const {
     double beta = 2 * M_PI * gsl_rng_uniform(gen);
     double rate = 0;
     for (unsigned int i = 0; i < at.size(); i++) {
