@@ -64,11 +64,9 @@ well as its atomic number and mass.
 - The `materials.txt` lists names of all desired materials. Each material name must be accompanied by a corresponding
 `name.txt` file.
 - Each `name.txt` file lists three pieces of information. The first two rows contain the material density in `g / cm^3`
-and mean excitation energy in `eV`. Mean excitation energies is not well-determined for all material, and here they
-also subsume some correction terms to the Bethe-Bloch formula. Hence, they should be regarded as a tuning parameter
-rather than a physical constant. Rows beyond the third specify the chemical composition of the material. Each of these
-rows consists of an atom ID and a corresponding stoichiometric amount. The numerical IDs refer to the corresponding rows
-of `atoms.txt`, counting from zero. The amounts provide the mean amount of that atom per unit volume.
+and mean excitation energy in `eV`. Rows beyond the third specify the chemical composition of the material. Each of these
+rows consists of an atom ID and the corresponding fraction by mass of that atom in the material. The numerical IDs refer
+to the rows of `atoms.txt`, counting from zero.
 
 For example, if the rows of `atoms.txt` are:
 
@@ -78,13 +76,7 @@ oxygen 8 16
 
 then the stoichiometric rows of water are specified as
 
-0 2.0\
-2 1.0
+0 0.111\
+2 0.889
 
-while a good approximation for air is
-
-1 1.57\
-2 0.43
-
-because air is 78% N<sub>2</sub> and 21% O<sub>2</sub>, and $0.78 \times 2 \approx 1.57$, allowing for slight rounding to
-account for the missing 1% of matter.
+because water is approximately 1/9 hydrogen and 8/9 oxygen by mass.
