@@ -110,15 +110,13 @@ struct Material {
     double mecsq = 0.511;   // mass of electron * speed of light squared, MeV
     double mpcsq = 938.346; // mass of proton * speed of light squared, MeV
     double betasq = (2 * mpcsq + e) * e / pow(mpcsq + e, 2);
-    double num = 0;
-    double denom = 0;
+    double ret = 0;
     for (unsigned int i = 0; i < at.size(); i++) {
-      num += x[i] * 0.3072 * at[i].z * density *
+      ret += x[i] * 0.3072 * at[i].z * density *
              (log(2 * mecsq * betasq / (I * (1 - betasq))) - betasq) /
-             betasq; // MeV / cm
-      denom += at[i].a * x[i];
+             (betasq * at[i].a); // MeV / cm
     }
-    return num / denom;
+    return ret;
   }
 
   double multiple_scattering_sd(const double e, const double dt) const {
@@ -149,7 +147,7 @@ struct Material {
     double omega = chi_c_sq / chi_a_sq;
     double F = 0.98;
     double v = omega / (2 * (1 - F));
-    double ret = sqrt(chi_c_sq * ((1 + v) * log(1 + v) / v - 1)) / (1 + F * F);
+    double ret = sqrt(chi_c_sq * ((1 + v) * log(1 + v) / v - 1) / (1 + F * F));
     return ret;
   }
 
@@ -160,14 +158,12 @@ struct Material {
     double log_avogadro = log(6) + 23 * log(10);
     double mpcsq = 938.346; // mass of proton * speed of light squared, MeV
     double betasq = (2 * mpcsq + e) * e / pow(mpcsq + e, 2);
-    double a = 0;
     double z = 0;
     for (unsigned int i = 0; i < at.size(); i++) {
-      a += x[i] * at[i].a; // average molar mass
-      z += x[i] * at[i].z; // electrons per average molecule
+      z += x[i] * at[i].z / at[i].a; // electrons per average molecule
     }
     double log_molecule_density =
-        log(density) + log_avogadro - log(a); // molecules / cm^3
+        log(density) + log_avogadro; // molecules / cm^3
     double ret =
         4 * M_PI * z * (1 - betasq / 2) / sqrt(1 - betasq) *
         exp(2 * (log(alpha) + log_hbar + log_c) + log_molecule_density);
@@ -181,11 +177,11 @@ struct Material {
     double ret = 0;
     for (unsigned int i = 0; i < at.size(); i++) {
       a += x[i] * at[i].a; // average molar mass
-      ret += at[i].a * x[i] * at[i].ne_rate.evaluate(e);
+      ret += x[i] * at[i].ne_rate.evaluate(e);
     }
     double log_molecule_density =
         log(density) + log_avogadro - log(a); // molecules / cm^3
-    ret *= exp(log_barns_to_cmsq + log_molecule_density) / a;
+    ret *= exp(log_barns_to_cmsq + log_molecule_density);
     return ret; // rate per cm
   }
 
@@ -196,11 +192,11 @@ struct Material {
     double ret = 0;
     for (unsigned int i = 0; i < at.size(); i++) {
       a += x[i] * at[i].a; // average molar mass
-      ret += at[i].a * x[i] * at[i].el_ruth_rate.evaluate(e);
+      ret += x[i] * at[i].el_ruth_rate.evaluate(e);
     }
     double log_molecule_density =
         log(density) + log_avogadro - log(a); // molecules / cm^3
-    ret *= exp(log_barns_to_cmsq + log_molecule_density) / a;
+    ret *= exp(log_barns_to_cmsq + log_molecule_density);
     return ret; // rate per cm
   }
 
@@ -232,14 +228,14 @@ struct Material {
     double beta = 2 * M_PI * gsl_rng_uniform(gen);
     double rate = 0;
     for (unsigned int i = 0; i < at.size(); i++) {
-      rate += at[i].a * x[i] * at[i].ne_rate.evaluate(e);
+      rate += x[i] * at[i].ne_rate.evaluate(e);
     }
     double u = gsl_rng_uniform(gen);
     double ind = 0;
-    double tmp = at[ind].a * x[ind] * at[ind].ne_rate.evaluate(e) / rate;
+    double tmp = x[ind] * at[ind].ne_rate.evaluate(e) / rate;
     while (tmp < u) {
       ind++;
-      tmp += at[ind].a * x[ind] * at[ind].ne_rate.evaluate(e) / rate;
+      tmp += x[ind] * at[ind].ne_rate.evaluate(e) / rate;
     }
     double alpha;
     // ENDF non-elastic scattering, both energy + angle from CM to LAB
@@ -254,14 +250,14 @@ struct Material {
     double beta = 2 * M_PI * gsl_rng_uniform(gen);
     double rate = 0;
     for (unsigned int i = 0; i < at.size(); i++) {
-      rate += at[i].a * x[i] * at[i].el_ruth_rate.evaluate(e);
+      rate += x[i] * at[i].el_ruth_rate.evaluate(e);
     }
     double u = gsl_rng_uniform(gen);
     double ind = 0;
-    double tmp = at[ind].a * x[ind] * at[ind].el_ruth_rate.evaluate(e) / rate;
+    double tmp = x[ind] * at[ind].el_ruth_rate.evaluate(e) / rate;
     while (tmp < u) {
       ind++;
-      tmp += at[ind].a * x[ind] * at[ind].el_ruth_rate.evaluate(e) / rate;
+      tmp += x[ind] * at[ind].el_ruth_rate.evaluate(e) / rate;
     }
     double alpha;
     alpha = at[ind].el_ruth_angle_cdf.sample(e, gen);
