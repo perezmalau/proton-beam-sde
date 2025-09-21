@@ -64,7 +64,7 @@ well as its atomic number and mass.
 - The `materials.txt` lists names of all desired materials. Each material name must be accompanied by a corresponding
 `name.txt` file.
 - Each `name.txt` file lists three pieces of information. The first two rows contain the material density in `g / cm^3`
-and mean excitation energy in `eV`. Rows beyond the third specify the chemical composition of the material. Each of these
+and mean excitation energy in `eV`. Rows from the third specify the chemical composition of the material. Each of these
 rows consists of an atom ID and the corresponding fraction by mass of that atom in the material. The numerical IDs refer
 to the rows of `atoms.txt`, counting from zero.
 
