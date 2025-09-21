@@ -81,16 +81,16 @@ int main(int argc, char **argv) {
   cfg.lookupValue("replicates", nrep);
 
   const libconfig::Setting &root = cfg.getRoot();
-  std::vector<double> change_points(root["change_points"].getLength());
+  std::vector<double> change_points(root["change_points"].getLength() + 2);
+  change_points[0] = -DBL_MAX;
+  for (unsigned int i = 0; i < change_points.size() - 2; i++) {
+    change_points[i + 1] = root["change_points"][i];
+  }
+  change_points[change_points.size() - 1] = DBL_MAX;
   std::vector<int> interval_materials(root["interval_materials"].getLength());
-  for (unsigned int i = 0; i < change_points.size(); i++) {
-    change_points[i] = root["change_points"][i];
+  for (unsigned int i = 0; i < interval_materials.size(); i++) {
     interval_materials[i] = root["interval_materials"][i];
   }
-  change_points.push_back(DBL_MAX);
-  interval_materials[interval_materials.size() - 1] =
-      root["interval_materials"][interval_materials.size() - 1];
-
   double grid_dx;
   cfg.lookupValue("grid_dx", grid_dx);
   std::string out_path;
