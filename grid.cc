@@ -69,50 +69,48 @@ struct Grid {
     std::vector<double> tmp(1, 0);
     std::vector<std::vector<double>> tmp2(1, tmp);
     for (int i = 0; i < len; i++) {
-      if (y[i][0] >= 0) {
-        ix = floor(y[i][0] / dx);
-        iy = floor(fabs(y[i][1]) / dx);
-        iz = floor(fabs(y[i][2]) / dx);
+      ix = floor(y[i][0] / dx);
+      iy = floor(fabs(y[i][1]) / dx);
+      iz = floor(fabs(y[i][2]) / dx);
+      if (ix >= 0) {
         if (ix >= int(x_pp.size())) {
           x_pp.resize(ix + 1, tmp2);
           x_pm.resize(ix + 1, tmp2);
           x_mp.resize(ix + 1, tmp2);
           x_mm.resize(ix + 1, tmp2);
         }
-        if (ix >= 0 && ix < int(x_pp.size())) {
-          if (y[i][1] >= 0 && y[i][2] >= 0) {
-            if (iy >= x_pp[ix].size()) {
-              x_pp[ix].resize(iy + 1, tmp);
-            }
-            if (iz >= x_pp[ix][iy].size()) {
-              x_pp[ix][iy].resize(iz + 1, 0);
-            }
-            x_pp[ix][iy][iz] += s[i];
-          } else if (y[i][1] >= 0 && y[i][2] < 0) {
-            if (iy >= x_pm[ix].size()) {
-              x_pm[ix].resize(iy + 1, tmp);
-            }
-            if (iz >= x_pm[ix][iy].size()) {
-              x_pm[ix][iy].resize(iz + 1, 0);
-            }
-            x_pm[ix][iy][iz] += s[i];
-          } else if (y[i][1] < 0 && y[i][2] >= 0) {
-            if (iy >= x_mp[ix].size()) {
-              x_mp[ix].resize(iy + 1, tmp);
-            }
-            if (iz >= x_mp[ix][iy].size()) {
-              x_mp[ix][iy].resize(iz + 1, 0);
-            }
-            x_mp[ix][iy][iz] += s[i];
-          } else {
-            if (iy >= x_mm[ix].size()) {
-              x_mm[ix].resize(iy + 1, tmp);
-            }
-            if (iz >= x_mm[ix][iy].size()) {
-              x_mm[ix][iy].resize(iz + 1, 0);
-            }
-            x_mm[ix][iy][iz] += s[i];
+        if (y[i][1] >= 0 && y[i][2] >= 0) {
+          if (iy >= x_pp[ix].size()) {
+            x_pp[ix].resize(iy + 1, tmp);
           }
+          if (iz >= x_pp[ix][iy].size()) {
+            x_pp[ix][iy].resize(iz + 1, 0);
+          }
+          x_pp[ix][iy][iz] += s[i];
+        } else if (y[i][1] >= 0 && y[i][2] < 0) {
+          if (iy >= x_pm[ix].size()) {
+            x_pm[ix].resize(iy + 1, tmp);
+          }
+          if (iz >= x_pm[ix][iy].size()) {
+            x_pm[ix][iy].resize(iz + 1, 0);
+          }
+          x_pm[ix][iy][iz] += s[i];
+        } else if (y[i][1] < 0 && y[i][2] >= 0) {
+          if (iy >= x_mp[ix].size()) {
+            x_mp[ix].resize(iy + 1, tmp);
+          }
+          if (iz >= x_mp[ix][iy].size()) {
+            x_mp[ix][iy].resize(iz + 1, 0);
+          }
+          x_mp[ix][iy][iz] += s[i];
+        } else {
+          if (iy >= x_mm[ix].size()) {
+            x_mm[ix].resize(iy + 1, tmp);
+          }
+          if (iz >= x_mm[ix][iy].size()) {
+            x_mm[ix][iy].resize(iz + 1, 0);
+          }
+          x_mm[ix][iy][iz] += s[i];
         }
       }
     }

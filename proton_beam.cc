@@ -209,8 +209,8 @@ struct proton_path {
       if (direction > 0 && (next_change - x[ix - 1][0]) / direction < dt) {
         time_step = (next_change - x[ix - 1][0]) / direction;
       }
-      if (direction < 0 && (x[ix - 1][0] - prev_change) / direction < dt) {
-        time_step = (x[ix - 1][0] - prev_change) / direction;
+      if (direction < 0 && -(x[ix - 1][0] - prev_change) / direction < dt) {
+        time_step = -(x[ix - 1][0] - prev_change) / direction;
       }
       x[ix][0] = x[ix - 1][0] + time_step * direction;
       x[ix][1] = x[ix - 1][1] + time_step * sin(v0) * sin(w0);
