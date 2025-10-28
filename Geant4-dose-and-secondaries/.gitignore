@@ -1,0 +1,17 @@
+# Build artifacts
+build/
+cmake-build-*/
+build/CMakeFiles/
+CMakeCache.txt
+Makefile
+*.cmake
+
+# CLion settings
+.idea/
+
+# Executables and logs
+*.out
+*.o
+*.so
+*.a
+*.log
