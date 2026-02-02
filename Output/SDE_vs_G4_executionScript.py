@@ -22,7 +22,7 @@ from SDE_vs_G4 import (
     include_new_material,
     range_comparison,
     plot_multiple_bragg_peaks,
-    compute_percentage_voxelDiff,
+    compute_voxelDiff,
 )
 import numpy as np
 
@@ -110,7 +110,7 @@ f2 = plot_lateral_profiles(
 )
 f2.savefig(f"lateral_profiles_{energy1}MeV{suffix}.png")
 
-f3 = compute_percentage_voxelDiff(
+f3 = compute_voxelDiff(
     g4_dose1,
     sde_dose1,
     xmin=0,
@@ -169,7 +169,7 @@ f5 = plot_lateral_profiles(
 )
 f5.savefig(f"lateral_profiles_{energy2}MeV{suffix}.png")
 
-f6 = compute_percentage_voxelDiff(
+f6 = compute_voxelDiff(
     g4_dose2,
     sde_dose2,
     xmin=0,

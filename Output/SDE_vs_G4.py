@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pymedphys
 from scipy.interpolate import interp1d
 from matplotlib.lines import Line2D
+from matplotlib import ticker
 import uproot4
 
 plt.rcParams.update({"font.size": 13})
@@ -568,7 +569,7 @@ def compute_percentage_difference(g4_dd, sde_dd, max_diff=50, threshold=1e-6):
 
 # From 3D dose distribution, compute percentage difference voxel-to-voxel
 # Differences are normalised by percentile (default: 99th percentile of ref dose. If None, local difference is used)
-def compute_percentage_voxelDiff(
+def compute_voxelDiff(
     ref_img,
     target_img,
     xmin,
@@ -592,7 +593,7 @@ def compute_percentage_voxelDiff(
         d_norm = np.percentile(dose_ref[mask], norm_percentile)
 
     diff = np.zeros_like(dose_ref, dtype=float)
-    diff[mask] = 100 * np.abs(dose_ref[mask] - dose_eval[mask]) / d_norm
+    diff[mask] = np.abs(dose_ref[mask] - dose_eval[mask]) / d_norm
 
     img = diff[:, :, diff.shape[2] // 2].T
     f, ax = plt.subplots(figsize=(6, 4), layout="compressed")
@@ -611,7 +612,8 @@ def compute_percentage_voxelDiff(
     else:
         ax.set_xticks(np.arange(0, xmax, 5))
     cbar = plt.colorbar(im, pad=0.02)
-    cbar.set_label(r"Relative difference [%]")
+    cbar.ax.yaxis.set_major_locator(ticker.MultipleLocator(0.01))
+    cbar.set_label(r"$(D_{G4} - D_{SDE}) / D99$")
     ax.minorticks_on()
     return f
 
