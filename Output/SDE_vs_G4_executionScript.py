@@ -43,6 +43,7 @@ voxel_volume = 0.001  # cm3
 dd = 2
 dta = 0.5
 th = 1
+fig_extension = ".eps"
 
 # Adjust parameters according to case:
 if suffix == "_slab":
@@ -93,7 +94,7 @@ f1 = plot_slice(
     zmin=-5,
     zmax=5,
 )
-f1.savefig(f"2DSlice_z_{energy1}MeV{suffix}.png")
+f1.savefig(f"2DSlice_z_{energy1}MeV{suffix}{fig_extension}")
 
 f2 = plot_lateral_profiles(
     g4_dose1,
@@ -108,7 +109,7 @@ f2 = plot_lateral_profiles(
     uplim=1,
     cuts=cuts_100,
 )
-f2.savefig(f"lateral_profiles_{energy1}MeV{suffix}.png")
+f2.savefig(f"lateral_profiles_{energy1}MeV{suffix}{fig_extension}")
 
 f3 = compute_voxelDiff(
     g4_dose1,
@@ -120,7 +121,7 @@ f3 = compute_voxelDiff(
     zmin=-5,
     zmax=5,
 )
-f3.savefig(f"doseDiff_{energy1}MeV{suffix}.png")
+f3.savefig(f"doseDiff_{energy1}MeV{suffix}{fig_extension}")
 
 # Gamma analysis
 print("Gamma values for 100 MeV: ")
@@ -152,7 +153,7 @@ f4 = plot_slice(
     zmin=-10,
     zmax=10,
 )
-f4.savefig(f"2DSlice_z_{energy2}MeV{suffix}.png")
+f4.savefig(f"2DSlice_z_{energy2}MeV{suffix}{fig_extension}")
 
 f5 = plot_lateral_profiles(
     g4_dose2,
@@ -167,7 +168,7 @@ f5 = plot_lateral_profiles(
     uplim=1,
     cuts=cuts_150,
 )
-f5.savefig(f"lateral_profiles_{energy2}MeV{suffix}.png")
+f5.savefig(f"lateral_profiles_{energy2}MeV{suffix}{fig_extension}")
 
 f6 = compute_voxelDiff(
     g4_dose2,
@@ -179,7 +180,7 @@ f6 = compute_voxelDiff(
     zmin=-10,
     zmax=10,
 )
-f6.savefig(f"doseDiff_{energy2}MeV{suffix}.png")
+f6.savefig(f"doseDiff_{energy2}MeV{suffix}{fig_extension}")
 
 # Gamma analysis
 print("Gamma values for 150 MeV: ")
@@ -200,8 +201,8 @@ g2, pr2 = pymedphys_gamma(
 
 # Comparative plots
 f7, f8 = compare_bragg_peaks(sde_dose1, g4_dose1, energy1, sde_dose2, g4_dose2, energy2)
-f7.savefig(f"1DProj_{energy1}_vs_{energy2}MeV{suffix}.png")
-f8.savefig(f"1DSlice_{energy1}_vs_{energy2}MeV{suffix}.png")
+f7.savefig(f"1DProj_{energy1}_vs_{energy2}MeV{suffix}{fig_extension}")
+f8.savefig(f"1DSlice_{energy1}_vs_{energy2}MeV{suffix}{fig_extension}")
 
 # Proton range numbers
 r90_1 = range_comparison(g4_dose1, sde_dose1, 0.9)
@@ -240,7 +241,7 @@ if comparePhysics and suffix == "_water":
         ref_name="QGSP_BIC_EMZ",
         maxdif=10,
     )
-    f9.savefig(f"1DProj_multiComparison_{energy1}MeV.png")
+    f9.savefig(f"1DProj_multiComparison_{energy1}MeV{fig_extension}")
 
     f10 = plot_multiple_bragg_peaks(
         g4_dose1,
@@ -252,7 +253,7 @@ if comparePhysics and suffix == "_water":
         names=["QGSP_BIC_EMY", "QGSP_BERT", "SDE"],
         ref_name="QGSP_BIC_EMZ",
     )
-    f10.savefig(f"1DSlice_multiComparison_{energy1}MeV.png")
+    f10.savefig(f"1DSlice_multiComparison_{energy1}MeV{fig_extension}")
 
     f11 = plot_multiple_bragg_peaks(
         g4_dose2,
@@ -265,7 +266,7 @@ if comparePhysics and suffix == "_water":
         ref_name="QGSP_BIC_EMZ",
         maxdif=25,
     )
-    f11.savefig(f"1DProj_multiComparison_{energy2}MeV.png")
+    f11.savefig(f"1DProj_multiComparison_{energy2}MeV{fig_extension}")
 
     f12 = plot_multiple_bragg_peaks(
         g4_dose2,
@@ -278,4 +279,4 @@ if comparePhysics and suffix == "_water":
         ref_name="QGSP_BIC_EMZ",
         maxdif=30,
     )
-    f12.savefig(f"1DSlice_multiComparison_{energy2}MeV.png")
+    f12.savefig(f"1DSlice_multiComparison_{energy2}MeV{fig_extension}")
