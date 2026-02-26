@@ -545,9 +545,9 @@ def include_new_material(density_mat, tmin, tmax, rho, ycut=None, lower=False):
         new_mat[tmin:tmax, :, :] = rho
     else:
         if lower:
-            new_mat[tmin:tmax, ycut:, :] = rho
-        else:
             new_mat[tmin:tmax, :ycut, :] = rho
+        else:
+            new_mat[tmin:tmax, ycut:, :] = rho
     return new_mat
 
 
