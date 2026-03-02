@@ -35,7 +35,7 @@ Suffix must be selected to compare appropriate files. The options are:
 """
 
 N_primaries = "1E6"
-suffix = "_water"
+suffix = "_insert"
 energy1 = 100  # MeV
 energy2 = 150  # MeV
 comparePhysics = False # Set to true if data from BERT and EMY are available to plot comparison between phys lists
@@ -70,23 +70,16 @@ else:
     cuts_150 = [50, 100, 150]
     material_boundaries = None
 
+mass_matrix = density_matrix * voxel_volume
 # Data import
-g4_dose1 = MeV_g_to_Gy * retrieve_g4_output(f"G4_{N_primaries}_{energy1}MeV{suffix}.root") / (
-    density_matrix * voxel_volume
-)
-sde_dose1 = MeV_g_to_Gy * retrieve_sde_output(f"SDE_{N_primaries}_{energy1}MeV{suffix}.txt") / (
-    density_matrix * voxel_volume
-)
+g4_dose1 = MeV_g_to_Gy * retrieve_g4_output(f"G4_{N_primaries}_{energy1}MeV{suffix}.root") / mass_matrix
+sde_dose1 = MeV_g_to_Gy * retrieve_sde_output(f"SDE_{N_primaries}_{energy1}MeV{suffix}.txt") / mass_matrix
 
-g4_dose2 = MeV_g_to_Gy * retrieve_g4_output(f"G4_{N_primaries}_{energy2}MeV{suffix}.root") / (
-    density_matrix * voxel_volume
-)
-sde_dose2 = MeV_g_to_Gy * retrieve_sde_output(f"SDE_{N_primaries}_{energy2}MeV{suffix}.txt") / (
-    density_matrix * voxel_volume
-)
+g4_dose2 = MeV_g_to_Gy * retrieve_g4_output(f"G4_{N_primaries}_{energy2}MeV{suffix}.root") / mass_matrix
+sde_dose2 = MeV_g_to_Gy * retrieve_sde_output(f"SDE_{N_primaries}_{energy2}MeV{suffix}.txt") / mass_matrix
 
 # Comparative plots - 1D
-fa, fb = compare_bragg_peaks(sde_dose1, g4_dose1, energy1, sde_dose2, g4_dose2, energy2,
+fa, fb = compare_bragg_peaks(sde_dose1, g4_dose1, energy1, mass_matrix, sde_dose2, g4_dose2, energy2,
                              material_boundaries=material_boundaries)
 
 # Lateral profiles
@@ -245,38 +238,40 @@ if suffix == "_insert":
 if comparePhysics and suffix == "_water":
     g4_dose_emy1 = MeV_g_to_Gy * retrieve_g4_output(
         f"G4_{N_primaries}_{energy1}MeV{suffix}_emy.root"
-    ) / (density_matrix * voxel_volume)
+    ) / mass_matrix
     g4_dose_bert1 = MeV_g_to_Gy * retrieve_g4_output(
         f"G4_{N_primaries}_{energy1}MeV{suffix}_bert.root"
-    ) / (density_matrix * voxel_volume)
+    ) / mass_matrix
     g4_dose_emy2 = MeV_g_to_Gy * retrieve_g4_output(
         f"G4_{N_primaries}_{energy2}MeV{suffix}_emy.root"
-    ) / (density_matrix * voxel_volume)
+    ) / mass_matrix
     g4_dose_bert2 = MeV_g_to_Gy * retrieve_g4_output(
         f"G4_{N_primaries}_{energy2}MeV{suffix}_bert.root"
-    ) / (density_matrix * voxel_volume)
+    ) / mass_matrix
 
     fi = plot_multiple_bragg_peaks(
         g4_dose1,
         g4_dose_emy1,
         g4_dose_bert1,
         sde_dose1,
+        mass_matrix=mass_matrix,
         how="proj",
         xmax=8,
         names=["QGSP_BIC_EMY", "QGSP_BERT", "SDE"],
         ref_name="QGSP_BIC_EMZ",
         maxdif=10,
     )
-
     fj = plot_multiple_bragg_peaks(
-        g4_dose1,
-        g4_dose_emy1,
-        g4_dose_bert1,
-        sde_dose1,
-        how="slice",
-        xmax=8,
+        g4_dose2,
+        g4_dose_emy2,
+        g4_dose_bert2,
+        sde_dose2,
+        mass_matrix=mass_matrix,
+        how="proj",
+        xmax=17,
         names=["QGSP_BIC_EMY", "QGSP_BERT", "SDE"],
         ref_name="QGSP_BIC_EMZ",
+        maxdif=25,
     )
 
     fi.savefig(f"figure5a{fig_extension}")
@@ -284,22 +279,22 @@ if comparePhysics and suffix == "_water":
 
     # Uncomment the following lines to plot 1D slices
     # fk = plot_multiple_bragg_peaks(
-    #     g4_dose2,
-    #     g4_dose_emy2,
-    #     g4_dose_bert2,
-    #     sde_dose2,
-    #     how="proj",
-    #     xmax=17,
+    #     g4_dose1,
+    #     g4_dose_emy1,
+    #     g4_dose_bert1,
+    #     sde_dose1,
+    #     mass_matrix=mass_matrix,
+    #     how="slice",
+    #     xmax=8,
     #     names=["QGSP_BIC_EMY", "QGSP_BERT", "SDE"],
     #     ref_name="QGSP_BIC_EMZ",
-    #     maxdif=25,
     # )
-    #
     # fl = plot_multiple_bragg_peaks(
     #     g4_dose2,
     #     g4_dose_emy2,
     #     g4_dose_bert2,
     #     sde_dose2,
+    #     mass_matrix=mass_matrix,
     #     how="slice",
     #     xmax=17,
     #     names=["QGSP_BIC_EMY", "QGSP_BERT", "SDE"],
