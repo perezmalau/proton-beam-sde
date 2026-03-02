@@ -10,6 +10,7 @@ from scipy.interpolate import interp1d
 from matplotlib.lines import Line2D
 from matplotlib import ticker
 import uproot4
+from matplotlib.colors import ListedColormap, BoundaryNorm
 
 plt.rcParams.update({"font.size": 13})
 
@@ -150,13 +151,13 @@ def plot_slice(
         f.colorbar(
             im,
             ax=ax.ravel().tolist(),
-            label=r"Log$_{10}$(Dose per primary) [MeV/g]",
+            label=r"Log$_{10}$(Dose) [Gy]",
             pad=0.02,
         )
     else:
         f, ax = plt.subplots(figsize=(7.2, 5), layout="compressed")
         im = ax.imshow(sde_log.T, extent=extent, origin="lower", vmin=vmin, vmax=vmax)
-        f.colorbar(im, label=r"Log$_{10}$(Dose per primary) [MeV/g]", pad=0.02)
+        f.colorbar(im, label=r"Log$_{10}$(Dose) [Gy]", pad=0.02)
         ax.set_xlabel(labels[1])
         ax.set_ylabel(labels[0])
         ax.minorticks_on()
@@ -208,7 +209,7 @@ def plot_projection(
     f.colorbar(
         im2,
         ax=ax.ravel().tolist(),
-        label=r"Log$_{10}$(Integrated dose per primary) [MeV/g]",
+        label=r"Log$_{10}$(Integrated dose) [Gy $\cdot$ mm]",
         pad=0.02,
     )
     ax[0].set_ylabel("y [cm]")
@@ -263,10 +264,10 @@ def plot_multiple_bragg_peaks(
 
     for i, (mat, name) in enumerate(zip(others, names)):
         if how == "proj":
-            ax.set_ylabel(r"Total dose per primary [MeV/g]")
+            ax.set_ylabel(r"Total dose [Gy $\cdot$ mm$^2$]")
             dose1d = np.sum(mat, axis=(1, 2))
         else:
-            ax.set_ylabel(r"Dose per primary [MeV/g]")
+            ax.set_ylabel(r"Dose [Gy]")
             dose1d = mat[:, mat.shape[1] // 2, mat.shape[2] // 2]
         ax.plot(x, dose1d, label=name)
         ax_diff.plot(
@@ -279,7 +280,7 @@ def plot_multiple_bragg_peaks(
     ax.set_xlabel("Depth [cm]")
     ax.minorticks_on()
     if how == "proj":
-        ax.ticklabel_format(style="sci", axis="y", scilimits=(3, 3))
+        ax.ticklabel_format(style="sci", axis="y", scilimits=(-2, -2))
 
     # Difference
     ax_diff.set_ylabel("Diff vs ref [%]")
@@ -351,8 +352,9 @@ def plot_lateral_profiles(
         ax.legend(handles=model_lines, loc="upper left")
 
     ax.set_xlim(lowlim, uplim)
+    ax.ticklabel_format(style="sci", axis="y", scilimits=(-2, -2))
     ax.set_xlabel("z [cm]")
-    ax.set_ylabel(r"Dose per primary [MeV/g]")
+    ax.set_ylabel(r"Dose [Gy]")
     ax.minorticks_on()
     return f
 
@@ -422,7 +424,7 @@ def plot_all_slices(
     f.colorbar(
         im3,
         ax=ax.ravel().tolist(),
-        label=r"Log$_{10}$(Dose per primary) [MeV/g]",
+        label=r"Log$_{10}$(Dose) [Gy]",
         pad=0.02,
     )
     ax[0].set_title("X central slice", fontweight="bold")
@@ -662,6 +664,7 @@ def compare_bragg_peaks(
     energy2=None,
     max_diff1=10,
     max_diff2=25,
+    material_boundaries=None,
 ):
     x = np.linspace(0, 20, 200)
     g4_idd1 = np.sum(g4_dose1, axis=(1, 2))
@@ -682,8 +685,8 @@ def compare_bragg_peaks(
     ax1.plot(
         x, g4_idd1, label=f"Geant4 {energy1} MeV", linestyle="--", color="darkturquoise"
     )
-    ax1.set_ylabel(r"Total dose per primary [MeV/g]")
-    ax1.ticklabel_format(style="sci", axis="y", scilimits=(3, 3))
+    ax1.set_ylabel(r"Total dose [Gy $\cdot $mm$^2$]")
+    ax1.ticklabel_format(style="sci", axis="y", scilimits=(-2, -2))
     ax1.minorticks_on()
 
     # Difference
@@ -711,7 +714,8 @@ def compare_bragg_peaks(
     ax2.plot(
         x, g4_cdd1, label=f"Geant4 {energy1} MeV", linestyle="--", color="darkturquoise"
     )
-    ax2.set_ylabel(r"Dose per primary [MeV/g]")
+    ax2.set_ylabel(r"Dose [Gy]")
+    ax2.ticklabel_format(style="sci", axis="y", scilimits=(-2, -2))
     ax2.minorticks_on()
 
     # Difference
@@ -761,8 +765,21 @@ def compare_bragg_peaks(
             color="darkred",
         )
 
-    ax1.legend()
-    ax2.legend()
+    # Material boundaries: only in the top panels (ax1, ax2) + one legend entry
+    if material_boundaries:
+        for b in material_boundaries:
+            ax1.axvline(b, color="0.6", linestyle="-", linewidth=1)
+            ax2.axvline(b, color="0.6", linestyle="-", linewidth=1)
+
+        boundary_handle = Line2D([0], [0], color="0.6", lw=1, label="Material boundary")
+        h1, l1 = ax1.get_legend_handles_labels()
+        h2, l2 = ax2.get_legend_handles_labels()
+        ax1.legend(h1 + [boundary_handle], l1 + ["Material boundary"])
+        ax2.legend(h2 + [boundary_handle], l2 + ["Material boundary"])
+    else:
+        ax1.legend()
+        ax2.legend()
+
     ax1_diff.legend()
     ax2_diff.legend()
 
@@ -778,14 +795,14 @@ def plot_bragg_peaks_SDE(sde_dose1, energy1, sde_dose2=None, energy2=None):
 
     f1, ax1 = plt.subplots(figsize=(7.5, 4), layout="compressed")
     ax1.plot(x, sde_idd1, label=f"{energy1} MeV", color="darkblue")
-    ax1.set_ylabel(r"Total dose per primary [MeV/g]")
+    ax1.set_ylabel(r"Total dose [Gy $\cdot $mm$^2$]")
     ax1.set_xlabel("Depth [cm]")
     ax1.legend()
     ax1.minorticks_on()
 
     f2, ax2 = plt.subplots(figsize=(7.5, 4), layout="compressed")
     ax2.plot(x, sde_cdd1, label=f"{energy1} MeV", color="darkblue")
-    ax2.set_ylabel(r"Dose per primary [MeV/g]")
+    ax2.set_ylabel(r"Dose [Gy]")
     ax2.set_xlabel("Depth [cm]")
     ax2.legend()
     ax2.minorticks_on()
@@ -801,3 +818,37 @@ def plot_bragg_peaks_SDE(sde_dose1, energy1, sde_dose2=None, energy2=None):
         ax2.legend()
 
     return f1, f2
+
+def visualise_phantoms(z=100, tol=1e-6):
+    water, bone, lung = 1.0, 1.45, 0.385
+
+    base = np.ones((200, 200, 200)) * water
+    insert = include_new_material(base, tmin=30, tmax=50, rho=bone, ycut=100)
+    slab = include_new_material(include_new_material(base, tmin=20, tmax=30, rho=bone),
+                                tmin=30, tmax=50, rho=lung)
+
+    def to_labels(v):
+        lab = np.full(v.shape, -1, np.int8)
+        lab[np.isclose(v, water, atol=tol, rtol=0)] = 0
+        lab[np.isclose(v, bone,  atol=tol, rtol=0)] = 1
+        lab[np.isclose(v, lung,  atol=tol, rtol=0)] = 2
+        if (lab == -1).any():
+            bad = np.unique(v[lab == -1])
+            raise ValueError(f"Unknown densities found, e.g. {bad[:10]}")
+        return lab
+
+    vols   = [base, slab, insert]
+    titles = ["Homogeneous", "Slab", "Insert"]
+
+    cmap = ListedColormap(plt.get_cmap("tab10").colors[:3])
+    norm = BoundaryNorm([-0.5, 0.5, 1.5, 2.5], cmap.N)
+
+    fig, ax = plt.subplots(1, 3, figsize=(14, 5), layout="compressed", sharex=True, sharey=True)
+    im = None
+    for a, v, t in zip(ax, vols, titles):
+        im = a.imshow(to_labels(v)[:, :, z].T, origin="lower", cmap=cmap, norm=norm, interpolation="nearest")
+        a.set_title(t)
+
+    cbar = fig.colorbar(im, ax=ax, ticks=[0, 1, 2], shrink=0.95)
+    cbar.ax.set_yticklabels(["Water", "Bone", "Lung"])
+    plt.show()
